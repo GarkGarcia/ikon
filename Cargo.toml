@@ -1,0 +1,13 @@
+[package]
+name = "icon_baker"
+version = "0.1.0"
+authors = ["Gark Garcia <37553739+GarkGarcia@users.noreply.github.com>"]
+edition = "2018"
+descreption = "A simple solution for generating `.ico` and `.icns` icons. The crate also supports png sequences as an output format."
+
+[dependencies]
+zip = "0.5.2"
+png_encode_mini = "0.1.2"
+nsvg = "0.5.0"
+ico = "0.1.0"
+icns = "0.3.0"

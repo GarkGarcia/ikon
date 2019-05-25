@@ -3,7 +3,11 @@ name = "icon_baker"
 version = "0.1.0"
 authors = ["Gark Garcia <37553739+GarkGarcia@users.noreply.github.com>"]
 edition = "2018"
-descreption = "A simple solution for generating `.ico` and `.icns` icons. The crate also supports png sequences as an output format."
+description = "A simple solution for generating `.ico` and `.icns` icons. The crate also supports png sequences as an output format."
+license = "MIT"
+license-file = "LICENSE"
+repository = "https://github.com/GarkGarcia/icon_baker.git"
+homepage = "https://github.com/GarkGarcia/icon_baker"
 
 [dependencies]
 zip = "0.5.2"

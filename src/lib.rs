@@ -1,5 +1,3 @@
-//! A simple solution for generating `.ico` and `.icns` icons. The crate also supports png sequences as an output format.
-
 extern crate zip;
 extern crate png_encode_mini;
 extern crate ico;
@@ -361,8 +359,33 @@ fn reframe(source: &DynamicImage, w: u32, h: u32) -> RgbaImage {
 
 #[cfg(test)]
 mod tests {
+    use super::{Icon, IconOptions, SourceImage, ResamplingFilter, Crop, FromFile};
+
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn create_icon() {
+        let sources = [
+            SourceImage::from_file(r"C:\Users\thiag\OneDrive\PC\Projects\IconBaker\lib\tests\16.png").unwrap(),
+            SourceImage::from_file(r"C:\Users\thiag\OneDrive\PC\Projects\IconBaker\lib\tests\20.png").unwrap(),
+            SourceImage::from_file(r"C:\Users\thiag\OneDrive\PC\Projects\IconBaker\lib\tests\24.png").unwrap(),
+            SourceImage::from_file(r"C:\Users\thiag\OneDrive\PC\Projects\IconBaker\lib\tests\icon.svg").unwrap()
+        ];
+
+        let opts16 = IconOptions::new(vec![(16, 16)], ResamplingFilter::Neareast, Crop::Square);
+        let opts20 = IconOptions::new(vec![(20, 20)], ResamplingFilter::Neareast, Crop::Square);
+        let opts24 = IconOptions::new(vec![(24, 24)], ResamplingFilter::Neareast, Crop::Square);
+
+        let opts_rest = IconOptions::new(
+            vec![(32, 32), (40, 40), (48, 48), (64, 64), (80, 80), (96, 96), (128, 128), (256, 256)],
+            ResamplingFilter::Linear,
+            Crop::Square
+        );
+
+        let mut icon = Icon::ico(11);
+        icon.add_entry(opts16, &sources[0]).unwrap();
+        icon.add_entry(opts20, &sources[1]).unwrap();
+        icon.add_entry(opts24, &sources[2]).unwrap();
+        icon.add_entry(opts_rest, &sources[3]).unwrap();
+
+        icon.write(std::fs::File::create(r"C:\Users\thiag\OneDrive\PC\Projects\IconBaker\lib\tests\icon.ico").unwrap()).unwrap();
     }
 }

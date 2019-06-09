@@ -1,18 +1,22 @@
-# IconBaker Lib.
+# IconBaker (LIB)
+[![Crate](https://img.shields.io/crates/v/icon_baker.svg)](https://crates.io/crates/icon_baker)
+[![API](https://docs.rs/icon_baker/badge.svg)](https://docs.rs/icon_baker)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-1.32+-lightgray.svg)](https://github.com/rust-random/rand#rust-version-requirements)
+
 A simple solution for generating `.ico` and `.icns` icons. This crate serves as **IconBaker CLI's** internal library.
 
 ## Basic usage
 ```rust
-use icon_baker::*;
+use icon_baker::prelude::*;
 
-static n_entrie: usize = 1;
+const n_entrie: usize = 1;
 
 fn main() {
     // Creating the icon
     let mut icon = Icon::ico(n_entries);
 
     // Importing the source image
-    let source_image = SourceImage::from_file("myimage.jpg").unwrap();
+    let source_image = SourceImage::from_file("img.jpg").unwrap();
 
     // Configuring the entry
     let opts = IconOptions::new(
@@ -34,9 +38,10 @@ For an explanation of the difference between length and capacity, see
 
 ## Writing to files
 ```rust
-use icon_baker::*;
+use icon_baker::prelude::*;
+use std::fs::File;
 
-static n_entrie: usize = ...;
+const n_entrie: usize = ...;
 
 fn main() {
     let mut icon = Icon::ico(n_entries);
@@ -46,7 +51,7 @@ fn main() {
     if let Ok(&file) = File::create("myfile.ico") {
         match icon.write(file) {
             Ok(()) => println!("File 'myfile.ico' saved!"),
-            _      => println!("An error occured ;-;")
+            Err(_) => println!("An error occured ;-;")
         }
     }
 }

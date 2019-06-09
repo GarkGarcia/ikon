@@ -7,9 +7,9 @@ pub extern crate nsvg;
 mod write;
 
 use std::{convert::From, path::Path, marker::Sized, io::{self, Write, Seek}, default::Default, collections::HashMap};
-use nsvg::{image::{DynamicImage, RgbaImage, GenericImage, FilterType}, SvgImage};
+use nsvg::{image::{imageops, DynamicImage, RgbaImage, GenericImage, FilterType}, SvgImage};
 use zip::result::ZipError;
-pub use nsvg::image::{self, imageops};
+pub use nsvg::image;
 
 const MAX_ICO_SIZE: u16 = 265;
 const VALID_ICNS_SIZES: [(u16, u16);7] = [(16, 16), (32, 32), (64, 64), (128, 128), (256, 256), (512, 512), (1024, 1024)];
@@ -17,6 +17,10 @@ const VALID_ICNS_SIZES: [(u16, u16);7] = [(16, 16), (32, 32), (64, 64), (128, 12
 pub type Size = (u16, u16);
 pub type SourceMap<'a> = HashMap<IconOptions, &'a SourceImage>;
 pub type Result<T> = std::result::Result<T, Error>;
+
+pub mod prelude {
+    pub use super::{Icon, IconOptions, IconType, SourceImage, ResamplingFilter, Crop, FromFile};
+}
 
 /// A generic representation of an icon.
 pub struct Icon<'a> {
@@ -117,6 +121,10 @@ impl<'a> Icon<'a> {
         Icon { source_map: HashMap::with_capacity(capacity), icon_type: IconType::PngSequence }
     }
 
+    pub fn new(icon_type: IconType, capacity: usize) -> Self {
+        Icon { source_map: HashMap::with_capacity(capacity), icon_type }
+    }
+
     /// Adds an entry to the icon.
     /// 
     /// Returns `Err(Error::SizeAlreadyIncluded(Size))` if any of the sizes listed in `opts.sizes()` is already associated to another entry.
@@ -124,18 +132,18 @@ impl<'a> Icon<'a> {
     pub fn add_entry(&mut self, opts: IconOptions, source: &'a SourceImage) -> Result<()> {
         let sizes = self.sizes();
 
-        match self.icon_type {
-            IconType::Ico => for (w, h) in opts.sizes() {
+        if self.icon_type == IconType::Ico {
+            for (w, h) in opts.sizes() {
                 if w > MAX_ICO_SIZE || h > MAX_ICO_SIZE || w != h {
                     return Err(Error::InvalidIcoSize((w, h)));
                 }
-            },
-            IconType::Icns => for size in opts.sizes() {
+            }
+        } else if self.icon_type == IconType::Icns {
+            for size in opts.sizes() {
                 if !VALID_ICNS_SIZES.contains(&size) {
                     return Err(Error::InvalidIcnsSize(size));
                 }
-            },
-            IconType::PngSequence => {}
+            }
         }
 
         for size in opts.sizes() {
@@ -354,38 +362,5 @@ fn reframe(source: &DynamicImage, w: u32, h: u32) -> RgbaImage {
 
         imageops::overlay(&mut output, &source, dx, dy);
         output.to_rgba()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Icon, IconOptions, SourceImage, ResamplingFilter, Crop, FromFile};
-
-    #[test]
-    fn create_icon() {
-        let sources = [
-            SourceImage::from_file(r"C:\Users\thiag\OneDrive\PC\Projects\IconBaker\lib\tests\16.png").unwrap(),
-            SourceImage::from_file(r"C:\Users\thiag\OneDrive\PC\Projects\IconBaker\lib\tests\20.png").unwrap(),
-            SourceImage::from_file(r"C:\Users\thiag\OneDrive\PC\Projects\IconBaker\lib\tests\24.png").unwrap(),
-            SourceImage::from_file(r"C:\Users\thiag\OneDrive\PC\Projects\IconBaker\lib\tests\icon.svg").unwrap()
-        ];
-
-        let opts16 = IconOptions::new(vec![(16, 16)], ResamplingFilter::Neareast, Crop::Square);
-        let opts20 = IconOptions::new(vec![(20, 20)], ResamplingFilter::Neareast, Crop::Square);
-        let opts24 = IconOptions::new(vec![(24, 24)], ResamplingFilter::Neareast, Crop::Square);
-
-        let opts_rest = IconOptions::new(
-            vec![(32, 32), (40, 40), (48, 48), (64, 64), (80, 80), (96, 96), (128, 128), (256, 256)],
-            ResamplingFilter::Linear,
-            Crop::Square
-        );
-
-        let mut icon = Icon::ico(11);
-        icon.add_entry(opts16, &sources[0]).unwrap();
-        icon.add_entry(opts20, &sources[1]).unwrap();
-        icon.add_entry(opts24, &sources[2]).unwrap();
-        icon.add_entry(opts_rest, &sources[3]).unwrap();
-
-        icon.write(std::fs::File::create(r"C:\Users\thiag\OneDrive\PC\Projects\IconBaker\lib\tests\icon.ico").unwrap()).unwrap();
     }
 }

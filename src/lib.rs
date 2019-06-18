@@ -51,8 +51,8 @@ const MAX_ICO_SIZE: u16 = 265;
 const VALID_ICNS_SIZES: [(u16, u16);7] = [(16, 16), (32, 32), (64, 64), (128, 128), (256, 256), (512, 512), (1024, 1024)];
 
 pub type Size = (u16, u16);
-pub type SourceMap<'a> = HashMap<IconOptions, &'a SourceImage>;
 pub type Result<T> = std::result::Result<T, Error>;
+type SourceMap<'a> = HashMap<IconOptions, &'a SourceImage>;
 
 mod write;
 pub mod prelude {
@@ -117,10 +117,7 @@ pub trait FromFile where Self: Sized {
 }
 
 /// Rasterizes a generic image to series of `RgbaImage`'s, conforming to the configuration options specifyed in the `options` argument.
-pub trait Raster<E> {
-    /// Rasterizes `self` to series of `RgbaImage`'s, conforming to the configuration options specifyed in the `options` argument.
-    /// 
-    /// Returns `Ok(Vec<RgbaImage>)` if the rasterazation was sucessfull. Otherwise returns `Err<E>`
+trait Raster<E> {
     fn raster(&self, opts: &IconOptions) -> std::result::Result<Vec<RgbaImage>, E>;
 }
 

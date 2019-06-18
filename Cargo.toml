@@ -1,6 +1,6 @@
 [package]
 name = "icon_baker"
-version = "0.1.4"
+version = "1.0.0-beta"
 authors = ["Gark Garcia <37553739+GarkGarcia@users.noreply.github.com>"]
 edition = "2018"
 description = "A simple solution for generating .ico and .icns icons."

@@ -1,10 +1,46 @@
+//! A simple solution for generating `.ico` and `.icns` icons. This crate serves as **IconBaker CLI's** internal library.
+//! # Basic Usage
+//! ```rust
+//! use icon_baker::prelude::*;
+//! 
+//! const N_ENTRIES: usize = 1;
+//! 
+//! fn main() {
+//!     // Creating the icon
+//!     let mut icon = Icon::ico(n_entries);
+//! 
+//!     // Importing the source image
+//!     let src_image = SourceImage::from_file("img.jpg").unwrap();
+//! 
+//!     // Configuring the entry
+//!     let opts = IconOptions::new(
+//!         vec![(32, 32), (64, 64)] /* 32x32 and 64x64 sizes */,
+//!         ResamplingFilter::Linear /* Iterpolate the image */,
+//!         Crop::Square             /* Square image */
+//!     );
+//! 
+//!     // Adding the entry
+//!     icon.add_entry(opts, &src_image).unwrap();
+//! }
+//! ```
+//! # Supported Image Formats
+//! | Format | Decoding                                           | 
+//! | ------ | -------------------------------------------------- | 
+//! | `PNG`  | All supported color types                          | 
+//! | `JPEG` | Baseline and progressive                           | 
+//! | `GIF`  | Yes                                                | 
+//! | `BMP`  | Yes                                                | 
+//! | `ICO`  | Yes                                                | 
+//! | `TIFF` | Baseline(no fax support), `LZW`, PackBits          | 
+//! | `WEBP` | Lossy(Luma channel only)                           | 
+//! | `PNM ` | `PBM`, `PGM`, `PPM`, standard `PAM`                |
+//! | `SVG`  | Limited(flat filled shapes only) |
+
 extern crate zip;
 extern crate png_encode_mini;
 extern crate ico;
 extern crate icns;
 pub extern crate nsvg;
-
-mod write;
 
 use std::{convert::From, path::Path, marker::Sized, io::{self, Write, Seek}, default::Default, collections::HashMap};
 use nsvg::{image::{imageops, DynamicImage, RgbaImage, GenericImage, FilterType}, SvgImage};
@@ -18,6 +54,7 @@ pub type Size = (u16, u16);
 pub type SourceMap<'a> = HashMap<IconOptions, &'a SourceImage>;
 pub type Result<T> = std::result::Result<T, Error>;
 
+mod write;
 pub mod prelude {
     pub use super::{Icon, IconOptions, IconType, SourceImage, ResamplingFilter, Crop, FromFile};
 }

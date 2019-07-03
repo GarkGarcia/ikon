@@ -6,15 +6,15 @@
 A simple solution for generating `.ico` and `.icns` icons. This crate serves as **IconBaker CLI's** internal library.
 
 ## Intelligent Re-sampling
-**Icon Baker** uses _[nearest-neighbor re-sampling](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation)_ by default, avoiding blurred edges when upsizing small bitmap sources:
+**Icon Baker** uses _[nearest-neighbor re-sampling](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation)_ by default, avoiding blurred edges when up-sizing small bitmap sources:
 
 <img width="480px" height="248px" src="image1.png">
 
-Furthermore, **Icon Baker** only upsizes bitmap sources on an integer scale and fills the leftover pixels with a transparent border, providing pixel-perfect quality:
+Furthermore, **Icon Baker** only up-sizes bitmap sources on an integer scale, filling the leftover pixels with a transparent border and providing pixel-perfect quality:
 
 <img width="358px" height="222px" src="image2.png">
 
-You can also specify the sampling filter of each `Entry`, by modifying their `filter` fields.
+You can also specify the sampling filter of each `Entry` by modifying their `filter` fields.
 
 ## Supported Image Formats
 | Format | Supported?                                         | 
@@ -42,7 +42,7 @@ fn main() {
     let mut icon = Icon::ico(n_entries);
 
     // Importing the source image
-    let src_image = SourceImage::form_path("img.jpg").unwrap();
+    let src_image = SourceImage::from_path("img.jpg").unwrap();
 
     // Configuring the entry
     let entry = Entry::new(
@@ -72,8 +72,8 @@ fn main() {
     let mut icon = Icon::ico(n_entries);
 
     // Importing the source images
-    let small = SourceImage::form_path("small.jpg").unwrap();
-    let large = SourceImage::form_path("small.png").unwrap();
+    let small = SourceImage::from_path("small.jpg").unwrap();
+    let large = SourceImage::from_path("small.png").unwrap();
 
     // Configuring the entries
     let filter = ResamplingFilter::Nearest;
@@ -101,8 +101,8 @@ fn main() {
     let mut icon = Icon::ico(n_entries);
 
     // Importing the source images
-    let src1 = SourceImage::form_path("src1.jpg").unwrap();
-    let src2 = SourceImage::form_path("src2.png").unwrap();
+    let src1 = SourceImage::from_path("src1.jpg").unwrap();
+    let src2 = SourceImage::from_path("src2.png").unwrap();
 
     // Configuring the entries
     let filter = ResamplingFilter::Nearest;
@@ -114,7 +114,7 @@ fn main() {
     // Adding the entries
     icon.add_entry(entry1, &src1).expect("Returns Ok(())");
     icon.add_entry(entry2, &src2).expect(
-        "Returns Err(icon_baker::Error::SizeAlreadyIncluded((16, 16))))");
+        "Returns Err(Error::SizeAlreadyIncluded((16, 16))))");
 }
 ```
 

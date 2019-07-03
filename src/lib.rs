@@ -10,7 +10,7 @@
 //!     let mut icon = Icon::ico(n_entries);
 //! 
 //!     // Importing the source image
-//!     let src_image = SourceImage::form_path("img.jpg").unwrap();
+//!     let src_image = SourceImage::from_path("img.jpg").unwrap();
 //! 
 //!     // Configuring the entry
 //!     let entry = Entry::new(

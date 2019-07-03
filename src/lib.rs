@@ -1,5 +1,5 @@
 //! A simple solution for generating `.ico` and `.icns` icons. This crate serves as **IconBaker CLI's** internal library.
-//! # Basic Usage
+//! # Usage
 //! ```rust
 //! use icon_baker::prelude::*;
 //! 
@@ -24,7 +24,7 @@
 //! }
 //! ```
 //! # Supported Image Formats
-//! | Format | Decoding                                           | 
+//! | Format | Supported?                                         | 
 //! | ------ | -------------------------------------------------- | 
 //! | `PNG`  | All supported color types                          | 
 //! | `JPEG` | Baseline and progressive                           | 
@@ -34,7 +34,7 @@
 //! | `TIFF` | Baseline(no fax support), `LZW`, PackBits          | 
 //! | `WEBP` | Lossy(Luma channel only)                           | 
 //! | `PNM ` | `PBM`, `PGM`, `PPM`, standard `PAM`                |
-//! | `SVG`  | Limited(flat filled shapes only) |
+//! | `SVG`  | Limited(flat filled shapes only)                   |
 
 extern crate zip;
 extern crate png_encode_mini;
@@ -52,11 +52,11 @@ const VALID_ICNS_SIZES: [(u16, u16);7] = [(16, 16), (32, 32), (64, 64), (128, 12
 
 pub type Size = (u16, u16);
 pub type Result<T> = std::result::Result<T, Error>;
-type SourceMap<'a> = HashMap<IconOptions, &'a SourceImage>;
+type SourceMap<'a> = HashMap<Entry, &'a SourceImage>;
 
 mod write;
 pub mod prelude {
-    pub use super::{Icon, IconOptions, IconType, SourceImage, ResamplingFilter, Crop, FromFile};
+    pub use super::{Icon, Entry, IconType, SourceImage, ResamplingFilter, Crop, FromPath};
 }
 
 /// A generic representation of an icon.
@@ -67,7 +67,7 @@ pub struct Icon<'a> {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 /// A representation of an entry's properties.
-pub struct IconOptions {
+pub struct Entry {
     sizes: Vec<Size>,
     pub filter: ResamplingFilter,
     pub crop: Crop
@@ -111,17 +111,29 @@ pub enum Error {
 }
 
 /// Trait for constructing structs from a given path.
-pub trait FromFile where Self: Sized {
+pub trait FromPath where Self: Sized {
     /// Constructs `Self` from a given path.
-    fn from_file<P: AsRef<Path>>(path: P) -> Option<Self>;
+    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self>;
 }
 
 /// Rasterizes a generic image to series of `RgbaImage`'s, conforming to the configuration options specifyed in the `options` argument.
 trait Raster<E> {
-    fn raster(&self, opts: &IconOptions) -> std::result::Result<Vec<RgbaImage>, E>;
+    fn raster(&self, opts: &Entry) -> std::result::Result<Vec<RgbaImage>, E>;
 }
 
 impl<'a> Icon<'a> {
+    /// Creates an `Icon` instance.
+    /// # Arguments
+    /// * `icon_type` The type of the returned icon.
+    /// * `capacity` The target capacity for the underliyng `HashMap<IconOptions, &SourceImage>`.
+    /// 
+    /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero entries.
+    /// For an explanation of the difference between length and capacity, see
+    /// [*Capacity and reallocation*](https://doc.rust-lang.org/std/vec/struct.Vec.html#capacity-and-reallocation).
+    pub fn new(icon_type: IconType, capacity: usize) -> Self {
+        Icon { source_map: HashMap::with_capacity(capacity), icon_type }
+    }
+
     /// Creates an `Icon` with the `Ico` icon type.
     /// # Arguments
     /// * `capacity` The target capacity for the underliyng `HashMap<IconOptions, &SourceImage>`.
@@ -130,7 +142,7 @@ impl<'a> Icon<'a> {
     /// For an explanation of the difference between length and capacity, see
     /// [*Capacity and reallocation*](https://doc.rust-lang.org/std/vec/struct.Vec.html#capacity-and-reallocation).
     pub fn ico(capacity: usize) -> Self {
-        Icon { source_map: HashMap::with_capacity(capacity), icon_type: IconType::Ico }
+        Icon::new(IconType::Ico, capacity)
     }
 
     /// Creates an `Icon` with the `Icns` icon type.
@@ -141,7 +153,7 @@ impl<'a> Icon<'a> {
     /// For an explanation of the difference between length and capacity, see
     /// [*Capacity and reallocation*](https://doc.rust-lang.org/std/vec/struct.Vec.html#capacity-and-reallocation).
     pub fn icns(capacity: usize) -> Self {
-        Icon { source_map: HashMap::with_capacity(capacity), icon_type: IconType::Icns }
+        Icon::new(IconType::Icns, capacity)
     }
 
     /// Creates an `Icon` with the `PngSequece` icon type.
@@ -152,18 +164,14 @@ impl<'a> Icon<'a> {
     /// For an explanation of the difference between length and capacity, see
     /// [*Capacity and reallocation*](https://doc.rust-lang.org/std/vec/struct.Vec.html#capacity-and-reallocation).
     pub fn png_sequence(capacity: usize) -> Self {
-        Icon { source_map: HashMap::with_capacity(capacity), icon_type: IconType::PngSequence }
-    }
-
-    pub fn new(icon_type: IconType, capacity: usize) -> Self {
-        Icon { source_map: HashMap::with_capacity(capacity), icon_type }
+        Icon::new(IconType::PngSequence, capacity)
     }
 
     /// Adds an entry to the icon.
     /// 
     /// Returns `Err(Error::SizeAlreadyIncluded(Size))` if any of the sizes listed in `opts.sizes()` is already associated to another entry.
     /// Otherwise returns `Ok(())`.
-    pub fn add_entry(&mut self, opts: IconOptions, source: &'a SourceImage) -> Result<()> {
+    pub fn add_entry(&mut self, opts: Entry, source: &'a SourceImage) -> Result<()> {
         let sizes = self.sizes();
 
         if self.icon_type == IconType::Ico {
@@ -194,7 +202,7 @@ impl<'a> Icon<'a> {
     /// Remove an entry from the icon.
     /// 
     /// Returns `Some(&SourceImage)` if the icon contains an entry associated with the `opts` argument. Returns `None` otherwise.
-    pub fn remove_entry(&mut self, opts: &IconOptions) -> Option<&SourceImage> {
+    pub fn remove_entry(&mut self, opts: &Entry) -> Option<&SourceImage> {
         self.source_map.remove(opts)
     }
 
@@ -202,9 +210,9 @@ impl<'a> Icon<'a> {
     pub fn sizes(&self) -> Vec<Size> {
         let mut sizes = Vec::with_capacity(self.n_sizes());
 
-        for (opt, _) in &self.source_map {
-            let mut opt_sizes = opt.sizes().clone();
-            sizes.append(&mut opt_sizes);
+        for (entry, _) in &self.source_map {
+            let mut entry_sizes = entry.sizes().clone();
+            sizes.append(&mut entry_sizes);
         }
 
         sizes
@@ -214,7 +222,7 @@ impl<'a> Icon<'a> {
     /// 
     /// This method avoids allocating unnecessary resources when accessing `self.sizes().len()`.
     pub fn n_sizes(&self) -> usize {
-        self.source_map.iter().fold(0, |sum, (opts, _)| sum + opts.n_sizes())
+        self.source_map.iter().fold(0, |sum, (entry, _)| sum + entry.n_sizes())
     }
 
     pub fn raster(&self) -> Result<Vec<RgbaImage>> {
@@ -248,14 +256,14 @@ impl<'a> AsRef<SourceMap<'a>> for Icon<'a> {
     }
 }
 
-impl IconOptions {
+impl Entry {
     /// Constructs a new `IconOptions`.
     pub fn new(
         sizes: Vec<Size>,
         filter: ResamplingFilter,
         crop: Crop
     ) -> Self {
-        IconOptions { sizes, filter, crop }
+        Entry { sizes, filter, crop }
     }
 
     /// Returns a copy of `self.sizes`.
@@ -271,9 +279,9 @@ impl IconOptions {
     }
 }
 
-impl Default for IconOptions {
+impl Default for Entry {
     fn default() -> Self {
-        IconOptions { sizes: Vec::new(), filter: ResamplingFilter::Neareast, crop: Crop::Square }
+        Entry { sizes: Vec::new(), filter: ResamplingFilter::Neareast, crop: Crop::Square }
     }
 }
 
@@ -336,8 +344,8 @@ impl From<DynamicImage> for SourceImage {
     }
 }
 
-impl FromFile for SourceImage {
-    fn from_file<P: AsRef<Path>>(path: P) -> Option<Self> {
+impl FromPath for SourceImage {
+    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> {
         if let Ok(din) = image::open(&path) {
             Some(SourceImage::Bitmap(din))
         } else if let Ok(svg) = nsvg::parse_file(path.as_ref(), nsvg::Units::Pixel, 96.0) {
@@ -349,7 +357,7 @@ impl FromFile for SourceImage {
 }
 
 impl Raster<Error> for SvgImage {
-    fn raster(&self, opts: &IconOptions) -> Result<Vec<RgbaImage>> {
+    fn raster(&self, opts: &Entry) -> Result<Vec<RgbaImage>> {
         let mut images = Vec::with_capacity(opts.n_sizes());
 
         for (w, h) in opts.sizes() {
@@ -374,7 +382,7 @@ impl Raster<Error> for SvgImage {
 }
 
 impl Raster<Error> for DynamicImage {
-    fn raster(&self, opts: &IconOptions) -> Result<Vec<RgbaImage>> {
+    fn raster(&self, opts: &Entry) -> Result<Vec<RgbaImage>> {
         let mut rasters = Vec::with_capacity(opts.n_sizes());
 
         for (w, h) in opts.sizes() {

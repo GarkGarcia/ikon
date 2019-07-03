@@ -32,10 +32,10 @@ fn main() {
 }
 ```
 
-Note that the `capacity` argument in the `Icon::ico`, `Icon::icns`, `Icon::png_sequence` and `Icon::new` methods specifies the expected number of _entries_ in a given `Icon`, **not** the number of _sizes_ (since a single entry can contain multiple sizes).
+Note that the `capacity` argument in the `Icon::ico`, `Icon::icns`, `Icon::png_sequence` and `Icon::new` methods specifies the expected number of _entries_ in a given `Icon`, **_NOT_** the number of _sizes_ (since a single entry can contain multiple sizes).
 
 ### Sampling From Multiple Sources
-Let's say you want to customize your icon so that the smaller versions of it are less detailed. **IconBaker** helps you achieve this result by allowing to sample from multiple sources.
+Let's say you want to customize your icon so that the smaller versions of it are less detailed. **IconBaker** helps you achieve this by allowing to sample from multiple sources.
 
 You can simply combine separate source images by specifying to which entry they should be assigned:
 
@@ -65,9 +65,9 @@ fn main() {
 }
 ```
 
-Note that different `IconOption` do not need to share the same rasampling options (namely the `filter` and `crop` fields) and can even share a common `source` field.
+Note that different `IconOptions` instances do not need to share the same rasampling options (namely the `filter` and `crop` fields) and can even share a common `source` field.
 
-However, different entries cannot share a common `Size` in there `sizes` field. For example, the following program will panic at second call of `icon.add_entry()`:
+However, different entries cannot share a common `Size` in their `sizes` fields. For example, the following program will panic at second call of `icon.add_entry()`:
 
 ```rust
 use icon_baker::prelude::*;
@@ -90,13 +90,13 @@ fn main() {
     let src2_opt = option(vec![(16, 16)], filter, crop);
 
     // Adding the entries
-    icon.add_entry(src1_opt, &src1).expect("Returns `Ok(())`");
-    icon.add_entry(src2_opt, &src2)
-        .expect("Returns `Err(Error::SizeAlreadyIncluded((16, 16))))`");
+    icon.add_entry(src1_opt, &src1).expect("Returns Ok(())");
+    icon.add_entry(src2_opt, &src2).expect(
+        "Returns Err(icon_baker::Error::SizeAlreadyIncluded((16, 16))))");
 }
 ```
 
-## Writing to Files
+### Writing to Files
 Writing to files can be easily done by calling the `Icon::write` method:
 
 ```rust
@@ -119,8 +119,10 @@ fn main() {
 }
 ```
 
+Note that the `Icon::write` method can also write to instances of any type which implements [`Write`](https://doc.rust-lang.org/std/io/trait.Write.html).
+
 ## Supported Image Formats
-| Format | Decoding                                           | 
+| Format | Supported?                                         | 
 | ------ | -------------------------------------------------- | 
 | `PNG`  | All supported color types                          | 
 | `JPEG` | Baseline and progressive                           | 
@@ -130,12 +132,12 @@ fn main() {
 | `TIFF` | Baseline(no fax support), `LZW`, PackBits          | 
 | `WEBP` | Lossy(Luma channel only)                           | 
 | `PNM ` | `PBM`, `PGM`, `PPM`, standard `PAM`                |
-| `SVG`  | Limited([flat filled shapes only](###svg-support)) |
+| `SVG`  | Limited([flat filled shapes only](#svg-support))   |
 
 ## Limitations
-There are two main limitations in this crate: both `ICNS` and `SVG` are not fully supported. Due to the use of external depencies, this crate is not able to fully support the formal specifications of those two file formats.
+There are two main limitations in this crate: both `ICNS` and `SVG` are not fully supported. Due to the use of external dependencies, this crate is not able to fully support the formal specifications of those two file formats.
 
-However, the coverage provided by these external dependencies should be enough for most use cases.
+However, the coverage provided by this external dependencies should be enough for most use cases.
 
 ### ICNS Support
 
@@ -180,6 +182,6 @@ However, the coverage provided by these external dependencies should be enough f
 
 **IconBaker** uses the `nsvg` crate for rasterizing `.svg` files. According to the authors of the crate:
 
-> Like NanoSVG, the rasteriser only renders flat filled shapes. It is not particularly fast or accurate, but it is a simple way to bake vector graphics into textures.
+> Like NanoSVG, the rasterizer only renders flat filled shapes. It is not particularly fast or accurate, but it is a simple way to bake vector graphics into textures.
 
 The author of `icon_baker` is inclined to search for alternatives to `nsvg` if inquired to. Help would be appreciated. 

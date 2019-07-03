@@ -10,17 +10,17 @@
 //!     let mut icon = Icon::ico(n_entries);
 //! 
 //!     // Importing the source image
-//!     let src_image = SourceImage::from_file("img.jpg").unwrap();
+//!     let src_image = SourceImage::form_path("img.jpg").unwrap();
 //! 
 //!     // Configuring the entry
-//!     let opts = IconOptions::new(
+//!     let entry = Entry::new(
 //!         vec![(32, 32), (64, 64)] /* 32x32 and 64x64 sizes */,
 //!         ResamplingFilter::Linear /* Iterpolate the image */,
 //!         Crop::Square             /* Square image */
 //!     );
 //! 
 //!     // Adding the entry
-//!     icon.add_entry(opts, &src_image).unwrap();
+//!     icon.add_entry(entry, &src_image).unwrap();
 //! }
 //! ```
 //! # Supported Image Formats

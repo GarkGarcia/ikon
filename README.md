@@ -5,8 +5,32 @@
 
 A simple solution for generating `.ico` and `.icns` icons. This crate serves as **IconBaker CLI's** internal library.
 
+## Intelligent Re-sampling
+**Icon Baker** uses _[nearest-neighbor re-sampling](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation)_ by default, avoiding blurred edges when upsizing small bitmap sources:
+
+<img width="480px" height="248px" src="image1.png">
+
+Furthermore, **Icon Baker** only upsizes bitmap sources on an integer scale and fills the leftover pixels with a transparent border, providing pixel-perfect quality:
+
+<img width="358px" height="222px" src="image2.png">
+
+You can also specify the sampling filter of each `Entry`, by modifying their `filter` fields.
+
+## Supported Image Formats
+| Format | Supported?                                         | 
+| ------ | -------------------------------------------------- | 
+| `PNG`  | All supported color types                          | 
+| `JPEG` | Baseline and progressive                           | 
+| `GIF`  | Yes                                                | 
+| `BMP`  | Yes                                                | 
+| `ICO`  | Yes                                                | 
+| `TIFF` | Baseline(no fax support), `LZW`, PackBits          | 
+| `WEBP` | Lossy(Luma channel only)                           | 
+| `PNM ` | `PBM`, `PGM`, `PPM`, standard `PAM`                |
+| `SVG`  | Limited([flat filled shapes only](#svg-support))   |
+
 ## Usage
-This crate's API revolves around the concept of binding source images to a set of sizes and resampling configurations. The following example demonstrates this principle:
+This crate's API revolves around the concept of binding source images to an entry. The following example demonstrates this principle:
 
 ```rust
 use icon_baker::prelude::*;
@@ -18,17 +42,17 @@ fn main() {
     let mut icon = Icon::ico(n_entries);
 
     // Importing the source image
-    let src_image = SourceImage::from_file("img.jpg").unwrap();
+    let src_image = SourceImage::form_path("img.jpg").unwrap();
 
     // Configuring the entry
-    let opts = IconOptions::new(
+    let entry = Entry::new(
         vec![(32, 32), (64, 64)] /* 32x32 and 64x64 sizes */,
         ResamplingFilter::Linear /* Iterpolate the image */,
         Crop::Square             /* Square image */
     );
 
     // Adding the entry
-    icon.add_entry(opts, &src_image).unwrap();
+    icon.add_entry(entry, &src_image).unwrap();
 }
 ```
 
@@ -45,27 +69,26 @@ use icon_baker::prelude::*;
 const N_ENTRIES: usize = 2;
 
 fn main() {
-    let option = IconOptions::new;
     let mut icon = Icon::ico(n_entries);
 
     // Importing the source images
-    let small = SourceImage::from_file("small.jpg").unwrap();
-    let large = SourceImage::from_file("small.png").unwrap();
+    let small = SourceImage::form_path("small.jpg").unwrap();
+    let large = SourceImage::form_path("small.png").unwrap();
 
     // Configuring the entries
     let filter = ResamplingFilter::Nearest;
     let crop = Crop::Square;
 
-    let small_opt = option(vec![(16, 16)], filter, crop);
-    let large_opt = option(vec![(32, 32)], filter, crop);
+    let s_entry = Entry::new(vec![(16, 16)], filter, crop);
+    let l_entry = Entry::new(vec![(32, 32)], filter, crop);
 
     // Adding the entries
-    icon.add_entry(small_opt, &small).unwrap();
-    icon.add_entry(large_opt, &large).unwrap();
+    icon.add_entry(s_entry, &small).unwrap();
+    icon.add_entry(l_entry, &large).unwrap();
 }
 ```
 
-Note that different `IconOptions` instances do not need to share the same rasampling options (namely the `filter` and `crop` fields) and can even share a common `source` field.
+Note that different `Entry` instances do not need to share the same re-sampling options (namely the `filter` and `crop` fields) and can even share a common `source` field.
 
 However, different entries cannot share a common `Size` in their `sizes` fields. For example, the following program will panic at second call of `icon.add_entry()`:
 
@@ -75,23 +98,22 @@ use icon_baker::prelude::*;
 const N_ENTRIES: usize = 2;
 
 fn main() {
-    let option = IconOptions::new;
     let mut icon = Icon::ico(n_entries);
 
     // Importing the source images
-    let src1 = SourceImage::from_file("src1.jpg").unwrap();
-    let src2 = SourceImage::from_file("src2.png").unwrap();
+    let src1 = SourceImage::form_path("src1.jpg").unwrap();
+    let src2 = SourceImage::form_path("src2.png").unwrap();
 
     // Configuring the entries
     let filter = ResamplingFilter::Nearest;
     let crop = Crop::Square;
 
-    let src1_opt = option(vec![(16, 16)], filter, crop);
-    let src2_opt = option(vec![(16, 16)], filter, crop);
+    let entry1 = Entry::new(vec![(16, 16)], filter, crop);
+    let entry2 = Entry::new(vec![(16, 16)], filter, crop);
 
     // Adding the entries
-    icon.add_entry(src1_opt, &src1).expect("Returns Ok(())");
-    icon.add_entry(src2_opt, &src2).expect(
+    icon.add_entry(entry1, &src1).expect("Returns Ok(())");
+    icon.add_entry(entry2, &src2).expect(
         "Returns Err(icon_baker::Error::SizeAlreadyIncluded((16, 16))))");
 }
 ```
@@ -120,19 +142,6 @@ fn main() {
 ```
 
 Note that the `Icon::write` method can also write to instances of any type which implements [`Write`](https://doc.rust-lang.org/std/io/trait.Write.html).
-
-## Supported Image Formats
-| Format | Supported?                                         | 
-| ------ | -------------------------------------------------- | 
-| `PNG`  | All supported color types                          | 
-| `JPEG` | Baseline and progressive                           | 
-| `GIF`  | Yes                                                | 
-| `BMP`  | Yes                                                | 
-| `ICO`  | Yes                                                | 
-| `TIFF` | Baseline(no fax support), `LZW`, PackBits          | 
-| `WEBP` | Lossy(Luma channel only)                           | 
-| `PNM ` | `PBM`, `PGM`, `PPM`, standard `PAM`                |
-| `SVG`  | Limited([flat filled shapes only](#svg-support))   |
 
 ## Limitations
 There are two main limitations in this crate: both `ICNS` and `SVG` are not fully supported. Due to the use of external dependencies, this crate is not able to fully support the formal specifications of those two file formats.

@@ -33,23 +33,19 @@ fn main() {
     // Importing the source image
     let src_image = SourceImage::from_path("img.jpg").unwrap();
 
-    // Configuring the entry
-    let entry = entry![(32, 32), (64, 64)]; // 32x32 and 64x64 sizes
-
-    // Adding the entry
-    icon.add_entry(entry, &src_image).unwrap();
+    // Adding the sizes
+    icon.add_sizes(&vec![32, 64], &src_image).unwrap();
 }
 ```
 
-Note that the `capacity` argument in the `Icon::ico`, `Icon::icns`, `Icon::png_sequence` and `Icon::new` methods specifies the expected number of _entries_ in a given `Icon`, **_NOT_** the number of _sizes_ (since a single entry can contain multiple sizes).
+Note that the `capacity` argument in the `Icon::ico`, `Icon::icns`, `Icon::png_sequence` and `Icon::new` methods specifies the expected number of _sizes_ in a given `Icon`.
 
 ### Sampling From Multiple Sources
 Let's say you want to customize your icon so that the smaller versions of it are less detailed. **IconBaker** helps you achieve this by allowing to sample from multiple sources.
 
-You can simply combine separate source images by specifying to which entry they should be assigned:
+You can simply combine separate source images by specifying to which size they should be assigned:
 
 ```rust
-#[macro_use]
 use icon_baker::prelude::*;
 
 const N_ENTRIES: usize = 2;
@@ -61,42 +57,18 @@ fn main() {
     let small = SourceImage::from_path("small.jpg").unwrap();
     let large = SourceImage::from_path("small.png").unwrap();
 
-    // Adding the entries
-    icon.add_entry(entry![(16, 16)], &small).unwrap();
-    icon.add_entry(entry![(32, 32)], &large).unwrap();
+    // Adding the sizes
+    icon.add_size(16, &small).unwrap();
+    icon.add_size(32, &large).unwrap();
 }
 ```
 
-Note that different entries can share a common source image, but they cannot share a common size. For example, the following program will panic at second call of `icon.add_entry`:
-
-```rust
-#[macro_use]
-use icon_baker::prelude::*;
-
-const N_ENTRIES: usize = 2;
-
-fn main() {
-    let mut icon = Icon::ico(N_ENTRIES);
-
-    // Importing the source images
-    let src1 = SourceImage::from_path("src1.jpg").unwrap();
-    let src2 = SourceImage::from_path("src2.png").unwrap();
-
-    let entry1 = entry![(16, 16)];
-    let entry2 = entry![(16, 16)];
-
-    // Adding the entries
-    icon.add_entry(entry1, &src1).expect("Returns Ok(())");
-    icon.add_entry(entry2, &src2).expect(
-        "Returns Err(Error::SizeAlreadyIncluded((16, 16))))");
-}
-```
+Note that different sizes can share a common source image.
 
 ### Rasterizing
 Icons can be rasterized to a series of bitmap imaged with the help of the `Icon::rasterize` method. The sources will be scalled using the resampling filter provided in the `resampler` argument. The `icon_baker::resample` mod provides a series of standard resampling filters.
 
 ```rust
-#[macro_use]
 use icon_baker::prelude::*;
 
 const N_ENTRIES: usize = 1;
@@ -108,11 +80,8 @@ fn main() {
     // Importing the source image
     let src_image = SourceImage::from_path("img.jpg").unwrap();
 
-    // Configuring the entry
-    let entry = entry![(32, 32), (64, 64)]; // 32x32 and 64x64 sizes
-
-    // Adding the entry
-    icon.add_entry(entry, &src_image).unwrap();
+    // Adding the sizes
+    icon.add_sizes(&vec![32, 64], &src_image).unwrap();
 
     // Rasterize the sources
     let rasters = icon.rasterize(icon_baker::resample::linear)
@@ -124,7 +93,6 @@ fn main() {
 Writing to files can be easily done by calling the [`Icon::write`](https://docs.rs/icon_baker/struct.Icon.html#method.write) method:
 
 ```rust
-#[macro_use]
 use icon_baker::prelude::*;
 use std::fs::File;
 

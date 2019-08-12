@@ -1,7 +1,6 @@
 //! A simple solution for generating `.ico` and `.icns` icons. This crate serves as **IconBaker CLI's** internal library.
 //! # Usage
 //! ```rust
-//! #[macro_use]
 //! use icon_baker::prelude::*;
 //! 
 //! const N_ENTRIES: usize = 1;
@@ -13,11 +12,8 @@
 //!     // Importing the source image
 //!     let src_image = SourceImage::from_path("img.jpg").unwrap();
 //! 
-//!     // Configuring the entry
-//!     let entry = entry![(32, 32), (64, 64)]; // 32x32 and 64x64 sizes
-//! 
-//!     // Adding the entry
-//!     icon.add_entry(entry, &src_image).unwrap();
+//!     // Adding the sizes
+//!     icon.add_sizes(&vec![32, 64], &src_image).unwrap();
 //! }
 //! ```
 //! # Supported Image Formats
@@ -39,35 +35,23 @@ extern crate ico;
 extern crate icns;
 pub extern crate nsvg;
 
-use std::{convert::From, path::Path, marker::Sized, io::{self, Write, Seek}, collections::{HashMap, BTreeSet}};
+use std::{convert::From, path::Path, marker::Sized, io::{self, Write, Seek}, collections::HashMap};
 use nsvg::{image::{DynamicImage, RgbaImage, GenericImage}, SvgImage};
 use zip::result::ZipError;
 pub use nsvg::image;
 
-const MAX_ICO_SIZE: u16 = 265;
-const VALID_ICNS_SIZES: [(u16, u16);7] = [(16, 16), (32, 32), (64, 64), (128, 128), (256, 256), (512, 512), (1024, 1024)];
+const MAX_ICO_SIZE: u32 = 265;
+const VALID_ICNS_SIZES: [u32;7] = [16, 32, 64, 128, 256, 512, 1024];
 
-pub type Size = (u16, u16);
+// A representation of an icon's size in pixel units.
+pub type Size = u32;
 pub type Result<T> = std::result::Result<T, Error>;
-type SourceMap<'a> = HashMap<Entry, &'a SourceImage>;
+type SourceMap<'a> = HashMap<Size, &'a SourceImage>;
 
 mod write;
 pub mod resample;
 pub mod prelude {
-    pub use super::{Icon, Entry, IconType, SourceImage, FromPath, entry};
-}
-
-#[macro_export]
-macro_rules! entry {
-    ($($x:expr), *) => ({
-        let mut output = std::collections::BTreeSet::new();
-
-        for &elem in &[$($x), *] {
-            output.insert(elem);
-        }
-
-        output
-    });
+    pub use super::{Icon, IconType, SourceImage, FromPath};
 }
 
 /// A generic representation of an icon.
@@ -75,9 +59,6 @@ pub struct Icon<'a> {
     source_map: SourceMap<'a>,
     icon_type: IconType
 }
-
-/// A representation of an entry's sizes.
-pub type Entry = BTreeSet<Size>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IconType {
@@ -159,70 +140,66 @@ impl<'a> Icon<'a> {
     /// 
     /// Returns `Err(Error::SizeAlreadyIncluded(Size))` if any of the sizes listed in `opts.sizes()` is already associated to another entry.
     /// Otherwise returns `Ok(())`.
-    pub fn add_entry(&mut self, entry: &Entry, source: &'a SourceImage) -> Result<()> {
-        let sizes = self.sizes();
-
+    pub fn insert_size(&mut self, size: Size, source: &'a SourceImage) -> Result<Option<&'a SourceImage>> {
         if self.icon_type == IconType::Ico {
-            for &(w, h) in entry {
-                if w > MAX_ICO_SIZE || h > MAX_ICO_SIZE || w != h {
-                    return Err(Error::InvalidIcoSize((w, h)));
-                }
+            if size > MAX_ICO_SIZE  {
+                return Err(Error::InvalidIcoSize(size));
             }
         } else if self.icon_type == IconType::Icns {
-            for &size in entry {
-                if !VALID_ICNS_SIZES.contains(&size) {
-                    return Err(Error::InvalidIcnsSize(size));
-                }
+            if !VALID_ICNS_SIZES.contains(&size) {
+                return Err(Error::InvalidIcnsSize(size));
             }
         }
 
-        for &size in entry {
-            if sizes.contains(&size) {
-                return Err(Error::SizeAlreadyIncluded(size));
+        Ok(self.source_map.insert(size, source))
+    }
+
+    pub fn insert_sizes(&mut self, sizes: &Vec<Size>, source: &'a SourceImage) -> Result<Vec<Option<&'a SourceImage>>> {
+        let mut output = Vec::with_capacity(sizes.len());
+
+        for &size in sizes {
+            match self.insert_size(size, source) {
+                Ok(opt) => output.push(opt),
+                Err(err) => return Err(err)
             }
         }
 
-        self.source_map.insert(entry.clone(), source);
-
-        Ok(())
+        Ok(output)
     }
 
     /// Remove an entry from the icon.
     /// 
     /// Returns `Some(&SourceImage)` if the icon contains an entry associated with the `opts` argument. Returns `None` otherwise.
-    pub fn remove_entry(&mut self, opts: &Entry) -> Option<&SourceImage> {
-        self.source_map.remove(opts)
+    pub fn remove_size(&mut self, size: Size) -> Option<&SourceImage> {
+        self.source_map.remove(&size)
     }
 
     /// Returns a list of all sizes listed in all icon's entries.
     pub fn sizes(&self) -> Vec<Size> {
-        let mut sizes = Vec::with_capacity(self.n_sizes());
-
-        for (entry, _) in &self.source_map {
-            for &size in entry {
-                sizes.push(size);
-            }
-        }
-
-        sizes
+         self.source_map.keys().map(|size| *size).collect()
     }
 
     /// Returns the total number of sizes in all icon's entries.
     /// 
     /// This method avoids allocating unnecessary resources when accessing `self.sizes().len()`.
     pub fn n_sizes(&self) -> usize {
-        self.source_map.iter().fold(0, |sum, (entry, _)| sum + entry.len())
+        self.source_map.len()
+    }
+
+    /// Returns true if `self.source_map` contains `size`. Otherwise returns false.
+    /// 
+    /// This method avoids allocating unnecessary resources when accessing `self.sizes().includes(&size)`.
+    pub fn contains_size(&self, size: Size) -> bool {
+        self.source_map.contains_key(&size)
     }
 
     pub fn rasterize<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(&self, mut resampler: F) -> Result<Vec<RgbaImage>> {
         let mut rasters = Vec::with_capacity(self.n_sizes());
 
-        for (sizes, source) in &self.source_map {
-            for &size in sizes {
-                match resampler(source, size) {
-                    Ok(rasterized) => rasters.push(rasterized),
-                    Err(err) => return Err(err)
-                }
+        for (&size, &source) in &self.source_map {
+            match resampler(source, size) {
+                Ok(rasterized) => rasters.push(rasterized),
+                Err(err) => return Err(err)
             }
         }
 
@@ -308,8 +285,8 @@ mod test {
         let img1 = SourceImage::from_path("test1.svg").unwrap();
         let img2 = SourceImage::from_path("test2.svg").unwrap();
 
-        let _ = icon.add_entry(&entry![(2, 3)], &img1);
-        let _ = icon.add_entry(&entry![(3, 2)], &img2);
+        let _ = icon.insert_size(32, &img1);
+        let _ = icon.insert_size(64, &img2);
 
         let file = File::create("test.ico").unwrap();
 

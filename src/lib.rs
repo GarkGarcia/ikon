@@ -43,7 +43,7 @@ extern crate icns;
 pub extern crate nsvg;
 
 use std::{convert::From, path::Path, marker::Sized, io::{self, Write, Seek}, default::Default, collections::HashMap};
-use nsvg::{image::{imageops, DynamicImage, RgbaImage, GenericImage, FilterType}, SvgImage};
+use nsvg::{image::{DynamicImage, RgbaImage, GenericImage}, SvgImage};
 use zip::result::ZipError;
 pub use nsvg::image;
 
@@ -55,8 +55,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 type SourceMap<'a> = HashMap<Entry, &'a SourceImage>;
 
 mod write;
+pub mod resample;
 pub mod prelude {
-    pub use super::{Icon, Entry, IconType, SourceImage, ResamplingFilter, Crop, FromPath};
+    pub use super::{Icon, Entry, IconType, SourceImage, Crop, FromPath};
 }
 
 /// A generic representation of an icon.
@@ -69,15 +70,7 @@ pub struct Icon<'a> {
 /// A representation of an entry's properties.
 pub struct Entry {
     sizes: Vec<Size>,
-    pub filter: ResamplingFilter,
     pub crop: Crop
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ResamplingFilter {
-    Neareast,
-    Linear,
-    Cubic
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -114,11 +107,6 @@ pub enum Error {
 pub trait FromPath where Self: Sized {
     /// Constructs `Self` from a given path.
     fn from_path<P: AsRef<Path>>(path: P) -> Option<Self>;
-}
-
-/// Rasterizes a generic image to series of `RgbaImage`'s, conforming to the configuration options specifyed in the `options` argument.
-trait Raster<E> {
-    fn raster(&self, opts: &Entry) -> std::result::Result<Vec<RgbaImage>, E>;
 }
 
 impl<'a> Icon<'a> {
@@ -225,13 +213,15 @@ impl<'a> Icon<'a> {
         self.source_map.iter().fold(0, |sum, (entry, _)| sum + entry.n_sizes())
     }
 
-    pub fn raster(&self) -> Result<Vec<RgbaImage>> {
+    pub fn rasterize<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(&self, resampler: &mut F) -> Result<Vec<RgbaImage>> {
         let mut rasters = Vec::with_capacity(self.n_sizes());
 
         for (opts, source) in &self.source_map {
-            match source {
-                SourceImage::Svg(svg) => rasters.append(&mut svg.raster(&opts)?),
-                SourceImage::Bitmap(bit) => rasters.append(&mut bit.raster(&opts)?)
+            for size in opts.sizes() {
+                match resampler(source, size) {
+                    Ok(rasterized) => rasters.push(rasterized),
+                    Err(err) => return Err(err)
+                }
             }
         }
 
@@ -239,8 +229,8 @@ impl<'a> Icon<'a> {
     }
 
     /// Writes the icon to a file or stream.
-    pub fn write<W: Write + Seek>(&self, w: W) -> Result<()> {
-        let rasters = self.raster()?;
+    pub fn write<W: Write + Seek, F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(&self, w: W, resampler: &mut F) -> Result<()> {
+        let rasters = self.rasterize(resampler)?;
 
         match self.icon_type {
             IconType::Ico => write::ico(rasters, w),
@@ -260,10 +250,9 @@ impl Entry {
     /// Constructs a new `IconOptions`.
     pub fn new(
         sizes: Vec<Size>,
-        filter: ResamplingFilter,
         crop: Crop
     ) -> Self {
-        Entry { sizes, filter, crop }
+        Entry { sizes, crop }
     }
 
     /// Returns a copy of `self.sizes`.
@@ -281,28 +270,7 @@ impl Entry {
 
 impl Default for Entry {
     fn default() -> Self {
-        Entry { sizes: Vec::new(), filter: ResamplingFilter::Neareast, crop: Crop::Square }
-    }
-}
-
-impl ResamplingFilter {
-    pub fn from(filter: FilterType) -> Option<Self> {
-        match filter {
-            FilterType::Nearest    => Some(ResamplingFilter::Neareast),
-            FilterType::Triangle   => Some(ResamplingFilter::Linear),
-            FilterType::CatmullRom => Some(ResamplingFilter::Cubic),
-            _ => None
-        }
-    }
-}
-
-impl Into<FilterType> for ResamplingFilter {
-    fn into(self) -> FilterType {
-        match self {
-            ResamplingFilter::Neareast => FilterType::Nearest,
-            ResamplingFilter::Linear   => FilterType::Triangle,
-            ResamplingFilter::Cubic    => FilterType::CatmullRom
-        }
+        Entry { sizes: Vec::new(), crop: Crop::Square }
     }
 }
 
@@ -353,56 +321,5 @@ impl FromPath for SourceImage {
         } else {
             None
         }
-    }
-}
-
-impl Raster<Error> for SvgImage {
-    fn raster(&self, opts: &Entry) -> Result<Vec<RgbaImage>> {
-        let mut images = Vec::with_capacity(opts.n_sizes());
-
-        for (w, h) in opts.sizes() {
-            match self.rasterize(f32::from(w) / self.width()) {
-                Ok(buf) => if opts.crop == Crop::Square && (w as u32 != buf.width() || h as u32 != buf.height()) {
-                    let din = DynamicImage::ImageRgba8(buf);
-                    let reframed = reframe(&din, w as u32, h as u32);
-
-                    images.push(reframed);
-                } else {
-                    images.push(buf);
-                },
-                Err(err) => match err {
-                    nsvg::Error::IoError(err) => return Err(Error::Io(err)),
-                    err => return Err(Error::Nsvg(err))
-                }
-            }
-        }
-
-        Ok(images)
-    }
-}
-
-impl Raster<Error> for DynamicImage {
-    fn raster(&self, opts: &Entry) -> Result<Vec<RgbaImage>> {
-        let mut rasters = Vec::with_capacity(opts.n_sizes());
-
-        for (w, h) in opts.sizes() {
-            let reframed = reframe(&self.resize(w as u32, h as u32, opts.filter.into()), w as u32, h as u32);
-            rasters.push(reframed);
-        }
-
-        Ok(rasters)
-    }
-}
-
-fn reframe(source: &DynamicImage, w: u32, h: u32) -> RgbaImage {
-    if source.width() == w && source.height() == h {
-        source.to_rgba()
-    } else {
-        let mut output = DynamicImage::new_rgba8(w, h);
-        let dx = (output.width() - source.width()) / 2;
-        let dy = (output.height() - source.height()) / 2;
-
-        imageops::overlay(&mut output, &source, dx, dy);
-        output.to_rgba()
     }
 }

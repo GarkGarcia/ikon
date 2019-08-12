@@ -79,9 +79,9 @@ pub enum Error {
     Image(image::ImageError),
     Zip(ZipError),
     Io(io::Error),
-    SizeAlreadyIncluded(Size),
     InvalidIcoSize(Size),
-    InvalidIcnsSize(Size)
+    InvalidIcnsSize(Size),
+    SizeAlreadyIncluded(Size)
 }
 
 /// Trait for constructing structs from a given path.
@@ -96,7 +96,7 @@ impl<'a> Icon<'a> {
     /// * `icon_type` The type of the returned icon.
     /// * `capacity` The target capacity for the underliyng `HashMap<IconOptions, &SourceImage>`.
     /// 
-    /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero entries.
+    /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero sizes.
     /// For an explanation of the difference between length and capacity, see
     /// [*Capacity and reallocation*](https://doc.rust-lang.org/std/vec/struct.Vec.html#capacity-and-reallocation).
     pub fn new(icon_type: IconType, capacity: usize) -> Self {
@@ -107,7 +107,7 @@ impl<'a> Icon<'a> {
     /// # Arguments
     /// * `capacity` The target capacity for the underliyng `HashMap<IconOptions, &SourceImage>`.
     /// 
-    /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero entries.
+    /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero sizes.
     /// For an explanation of the difference between length and capacity, see
     /// [*Capacity and reallocation*](https://doc.rust-lang.org/std/vec/struct.Vec.html#capacity-and-reallocation).
     pub fn ico(capacity: usize) -> Self {
@@ -118,7 +118,7 @@ impl<'a> Icon<'a> {
     /// # Arguments
     /// * `capacity` The target capacity for the underliyng `HashMap<IconOptions, &SourceImage>`.
     /// 
-    /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero entries.
+    /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero sizes.
     /// For an explanation of the difference between length and capacity, see
     /// [*Capacity and reallocation*](https://doc.rust-lang.org/std/vec/struct.Vec.html#capacity-and-reallocation).
     pub fn icns(capacity: usize) -> Self {
@@ -129,18 +129,23 @@ impl<'a> Icon<'a> {
     /// # Arguments
     /// * `capacity` The target capacity for the underliyng `HashMap<IconOptions, &SourceImage>`.
     /// 
-    /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero entries.
+    /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero sizes.
     /// For an explanation of the difference between length and capacity, see
     /// [*Capacity and reallocation*](https://doc.rust-lang.org/std/vec/struct.Vec.html#capacity-and-reallocation).
     pub fn png_sequence(capacity: usize) -> Self {
         Icon::new(IconType::PngSequence, capacity)
     }
 
-    /// Adds an entry to the icon.
+    /// Adds a size binding to the icon.
     /// 
-    /// Returns `Err(Error::SizeAlreadyIncluded(Size))` if any of the sizes listed in `opts.sizes()` is already associated to another entry.
-    /// Otherwise returns `Ok(())`.
-    pub fn insert_size(&mut self, size: Size, source: &'a SourceImage) -> Result<Option<&'a SourceImage>> {
+    /// Returns `Err(_)` if the specified size is invalid or is already included in the Icon.
+    /// Returns `Ok(())` otherwise.
+    pub fn add_size(
+        &mut self,
+        size: Size,
+        source: &'a SourceImage
+    ) -> Result<()> {
+
         if self.icon_type == IconType::Ico {
             if size > MAX_ICO_SIZE  {
                 return Err(Error::InvalidIcoSize(size));
@@ -151,35 +156,46 @@ impl<'a> Icon<'a> {
             }
         }
 
-        Ok(self.source_map.insert(size, source))
+        if self.contains_size(size) {
+            Err(Error::SizeAlreadyIncluded(size))
+        } else {
+            let _ = self.source_map.insert(size, source);
+            Ok(())
+        }
     }
 
-    pub fn insert_sizes(&mut self, sizes: &Vec<Size>, source: &'a SourceImage) -> Result<Vec<Option<&'a SourceImage>>> {
-        let mut output = Vec::with_capacity(sizes.len());
+    /// Adds a series sizes binding to the icon.
+    /// 
+    /// Returns `Err(_)` if any of the specified sizes is invalid or is already included in the Icon.
+    /// Returns `Ok(())` otherwise.
+    pub fn add_sizes<I: ExactSizeIterator<Item = Size>>(
+        &mut self,
+        sizes: I,
+        source: &'a SourceImage
+    ) -> Result<()> {
 
-        for &size in sizes {
-            match self.insert_size(size, source) {
-                Ok(opt) => output.push(opt),
-                Err(err) => return Err(err)
+        for size in sizes {
+            if let Err(err) = self.add_size(size, source) {
+                return Err(err);
             }
         }
 
-        Ok(output)
+        Ok(())
     }
 
-    /// Remove an entry from the icon.
+    /// Remove a size binding from the icon.
     /// 
-    /// Returns `Some(&SourceImage)` if the icon contains an entry associated with the `opts` argument. Returns `None` otherwise.
+    /// Returns `Some(&SourceImage)` if the icon contains a size binding associated with the `opts` argument. Returns `None` otherwise.
     pub fn remove_size(&mut self, size: Size) -> Option<&SourceImage> {
         self.source_map.remove(&size)
     }
 
-    /// Returns a list of all sizes listed in all icon's entries.
+    /// Returns a list of all sizes listed in all icon's sizes.
     pub fn sizes(&self) -> Vec<Size> {
          self.source_map.keys().map(|size| *size).collect()
     }
 
-    /// Returns the total number of sizes in all icon's entries.
+    /// Returns the total number of sizes in all icon's sizes.
     /// 
     /// This method avoids allocating unnecessary resources when accessing `self.sizes().len()`.
     pub fn n_sizes(&self) -> usize {
@@ -285,8 +301,8 @@ mod test {
         let img1 = SourceImage::from_path("test1.svg").unwrap();
         let img2 = SourceImage::from_path("test2.svg").unwrap();
 
-        let _ = icon.insert_size(32, &img1);
-        let _ = icon.insert_size(64, &img2);
+        let _ = icon.add_size(32, &img1);
+        let _ = icon.add_size(64, &img2);
 
         let file = File::create("test.ico").unwrap();
 

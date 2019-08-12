@@ -3,7 +3,7 @@
 [![API](https://docs.rs/icon_baker/badge.svg)](https://docs.rs/icon_baker)
 [![Minimum rustc version](https://img.shields.io/badge/rustc-1.32+-lightgray.svg)](https://github.com/rust-random/rand#rust-version-requirements)
 
-A simple solution for generating `.ico` and `.icns` icons. This crate serves as **IconBaker CLI's** internal library.
+A simple solution for generating `.ico` and `.icns` icons. This crate serves as **[IconBaker CLI's](https://github.com/GarkGarcia/icon-baker)** internal library.
 
 ## Supported Image Formats
 | Format | Supported?                                         | 

@@ -34,7 +34,7 @@ fn main() {
     let src_image = SourceImage::from_path("img.jpg").unwrap();
 
     // Adding the sizes
-    let _ = icon.add_sizes(&vec![32, 64], &src_image).unwrap();
+    let _ = icon.add_sizes(vec![32, 64], &src_image).unwrap();
 }
 ```
 
@@ -81,7 +81,7 @@ fn main() {
     let src_image = SourceImage::from_path("img.jpg").unwrap();
 
     // Adding the sizes
-    let _ = icon.add_sizes(&vec![32, 64], &src_image).unwrap();
+    let _ = icon.add_sizes(vec![32, 64], &src_image).unwrap();
 
     // Rasterize the sources
     let rasters = icon.rasterize(icon_baker::resample::linear)

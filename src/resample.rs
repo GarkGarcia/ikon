@@ -1,6 +1,7 @@
 use crate::{SourceImage, Size, Result, Error};
 use nsvg::{image::{imageops, RgbaImage, FilterType}, SvgImage};
 
+/// [Linear resampling filter](https://en.wikipedia.org/wiki/Linear_interpolation).
 pub fn linear(source: &SourceImage, size: Size) -> Result<RgbaImage> {
     let (w, h) = size;
 
@@ -10,6 +11,7 @@ pub fn linear(source: &SourceImage, size: Size) -> Result<RgbaImage> {
     }
 }
 
+/// [Nearest-Neighbor resampling filter](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation).
 pub fn nearest_neighbor(source: &SourceImage, size: Size) -> Result<RgbaImage> {
     let (w, h) = size;
 
@@ -19,6 +21,7 @@ pub fn nearest_neighbor(source: &SourceImage, size: Size) -> Result<RgbaImage> {
     }
 }
 
+/// [Lanczos resampling filter](https://en.wikipedia.org/wiki/Lanczos_resampling).
 pub fn cubic(source: &SourceImage, size: Size) -> Result<RgbaImage> {
     let (w, h) = size;
 

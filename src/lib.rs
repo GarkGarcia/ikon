@@ -1,6 +1,7 @@
 //! A simple solution for generating `.ico` and `.icns` icons. This crate serves as **IconBaker CLI's** internal library.
 //! # Usage
 //! ```rust
+//! #[macro_use]
 //! use icon_baker::prelude::*;
 //! 
 //! const N_ENTRIES: usize = 1;
@@ -13,7 +14,7 @@
 //!     let src_image = SourceImage::from_path("img.jpg").unwrap();
 //! 
 //!     // Configuring the entry
-//!     let entry = vec![(32, 32), (64, 64)]; // 32x32 and 64x64 sizes
+//!     let entry = entry![(32, 32), (64, 64)]; // 32x32 and 64x64 sizes
 //! 
 //!     // Adding the entry
 //!     icon.add_entry(entry, &src_image).unwrap();
@@ -53,7 +54,7 @@ type SourceMap<'a> = HashMap<Entry, &'a SourceImage>;
 mod write;
 pub mod resample;
 pub mod prelude {
-    pub use super::{Icon, Entry, IconType, SourceImage, FromPath};
+    pub use super::{Icon, Entry, IconType, SourceImage, FromPath, entry};
 }
 
 #[macro_export]

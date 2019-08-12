@@ -38,7 +38,7 @@ extern crate ico;
 extern crate icns;
 pub extern crate nsvg;
 
-use std::{convert::From, path::Path, marker::Sized, io::{self, Write, Seek}, collections::HashMap};
+use std::{convert::From, path::Path, marker::Sized, io::{self, Write, Seek}, collections::{HashMap, BTreeSet}};
 use nsvg::{image::{DynamicImage, RgbaImage, GenericImage}, SvgImage};
 use zip::result::ZipError;
 pub use nsvg::image;
@@ -56,6 +56,19 @@ pub mod prelude {
     pub use super::{Icon, Entry, IconType, SourceImage, FromPath};
 }
 
+#[macro_export]
+macro_rules! entry {
+    ($($x:expr), *) => ({
+        let mut output = std::collections::BTreeSet::new();
+
+        for &elem in &[$($x), *] {
+            output.insert(elem);
+        }
+
+        output
+    });
+}
+
 /// A generic representation of an icon.
 pub struct Icon<'a> {
     source_map: SourceMap<'a>,
@@ -63,7 +76,7 @@ pub struct Icon<'a> {
 }
 
 /// A representation of an entry's sizes.
-pub type Entry = Vec<Size>;
+pub type Entry = BTreeSet<Size>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IconType {
@@ -185,7 +198,9 @@ impl<'a> Icon<'a> {
         let mut sizes = Vec::with_capacity(self.n_sizes());
 
         for (entry, _) in &self.source_map {
-            sizes.append(&mut entry.clone());
+            for &size in entry {
+                sizes.push(size);
+            }
         }
 
         sizes
@@ -198,7 +213,7 @@ impl<'a> Icon<'a> {
         self.source_map.iter().fold(0, |sum, (entry, _)| sum + entry.len())
     }
 
-    pub fn rasterize<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(&self, resampler: &mut F) -> Result<Vec<RgbaImage>> {
+    pub fn rasterize<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(&self, mut resampler: F) -> Result<Vec<RgbaImage>> {
         let mut rasters = Vec::with_capacity(self.n_sizes());
 
         for (sizes, source) in &self.source_map {
@@ -214,11 +229,11 @@ impl<'a> Icon<'a> {
     }
 
     /// Writes the icon to a file or stream.
-    pub fn write<W: Write + Seek, F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(&self, w: W, resampler: &mut F) -> Result<()> {
+    pub fn write<W: Write + Seek, F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(&self, w: W, resampler: F) -> Result<()> {
         let rasters = self.rasterize(resampler)?;
 
         match self.icon_type {
-            IconType::Ico => write::ico(rasters, w),
+            IconType::Ico =>  write::ico(rasters, w),
             IconType::Icns => write::icns(rasters, w),
             IconType::PngSequence => write::png_sequence(rasters, w)
         }
@@ -278,5 +293,25 @@ impl FromPath for SourceImage {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{Icon, SourceImage, FromPath};
+    use std::fs::File;
+
+    #[test]
+    fn test_write() {
+        let mut icon = Icon::ico(2);
+        let img1 = SourceImage::from_path("test1.svg").unwrap();
+        let img2 = SourceImage::from_path("test2.svg").unwrap();
+
+        let _ = icon.add_entry(&entry![(2, 3)], &img1);
+        let _ = icon.add_entry(&entry![(3, 2)], &img2);
+
+        let file = File::create("test.ico").unwrap();
+
+        let _ = icon.write(file, crate::resample::linear);
     }
 }

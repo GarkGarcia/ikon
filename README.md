@@ -19,7 +19,7 @@ A simple solution for generating `.ico` and `.icns` icons. This crate serves as 
 | `SVG`  | Limited([flat filled shapes only](#svg-support))   |
 
 ## Usage
-This crate's API revolves around the concept of binding source images to an entry. The following example demonstrates this principle:
+This crate's API revolves around the concept of binding source images to a set of sizes. The following example demonstrates this principle:
 
 ```rust
 use icon_baker::prelude::*;
@@ -34,7 +34,7 @@ fn main() {
     let src_image = SourceImage::from_path("img.jpg").unwrap();
 
     // Configuring the entry
-    let entry = vec![(32, 32), (64, 64)]; // 32x32 and 64x64 sizes
+    let entry = entry![(32, 32), (64, 64)]; // 32x32 and 64x64 sizes
 
     // Adding the entry
     icon.add_entry(entry, &src_image).unwrap();
@@ -49,7 +49,8 @@ Let's say you want to customize your icon so that the smaller versions of it are
 You can simply combine separate source images by specifying to which entry they should be assigned:
 
 ```rust
-use icon_baker::prelude::*;
+#[macro_use]
+use icon_baker::{self, prelude::*};
 
 const N_ENTRIES: usize = 2;
 
@@ -61,17 +62,16 @@ fn main() {
     let large = SourceImage::from_path("small.png").unwrap();
 
     // Adding the entries
-    icon.add_entry(vec![(16, 16)], &small).unwrap();
-    icon.add_entry(vec![(32, 32)], &large).unwrap();
+    icon.add_entry(entry![(16, 16)], &small).unwrap();
+    icon.add_entry(entry![(32, 32)], &large).unwrap();
 }
 ```
 
-Note that different `Entry` instances do not need to share the same re-sampling options (namely the `filter` and `crop` fields) and can even share a common `source` field.
-
-However, different entries cannot share a common `Size` in their `sizes` fields. For example, the following program will panic at second call of `icon.add_entry()`:
+Note that different entries can share a common source image, but they cannot share a common size. For example, the following program will panic at second call of `icon.add_entry`:
 
 ```rust
-use icon_baker::prelude::*;
+#[macro_use]
+use icon_baker::{self, prelude::*};
 
 const N_ENTRIES: usize = 2;
 
@@ -82,8 +82,8 @@ fn main() {
     let src1 = SourceImage::from_path("src1.jpg").unwrap();
     let src2 = SourceImage::from_path("src2.png").unwrap();
 
-    let entry1 = vec![(16, 16)];
-    let entry2 = vec![(16, 16)];
+    let entry1 = entry![(16, 16)];
+    let entry2 = entry![(16, 16)];
 
     // Adding the entries
     icon.add_entry(entry1, &src1).expect("Returns Ok(())");
@@ -92,11 +92,40 @@ fn main() {
 }
 ```
 
-### Writing to Files
-Writing to files can be easily done by calling the `Icon::write` method:
+### Rasterizing
+Icons can be rasterized to a series of bitmap imaged with the help of the `Icon::rasterize` method. The sources will be scalled using the resampling filter provided in the `resampler` argument. The `icon_baker::resample` mod provides a series of standard resampling filters.
 
 ```rust
-use icon_baker::prelude::*;
+#[macro_use]
+use icon_baker::{self, prelude::*};
+
+const N_ENTRIES: usize = 1;
+
+fn main() {
+    // Creating the icon
+    let mut icon = Icon::ico(N_ENTRIES);
+
+    // Importing the source image
+    let src_image = SourceImage::from_path("img.jpg").unwrap();
+
+    // Configuring the entry
+    let entry = entry![(32, 32), (64, 64)]; // 32x32 and 64x64 sizes
+
+    // Adding the entry
+    icon.add_entry(entry, &src_image).unwrap();
+
+    // Rasterize the sources
+    let rasters = icon.rasterize(icon_baker::resample::linear)
+        .unwrap_or_default();
+}
+```
+
+### Writing to Files
+Writing to files can be easily done by calling the [`Icon::write`](https://docs.rs/icon_baker/struct.Icon.html#method.write) method:
+
+```rust
+#[macro_use]
+use icon_baker::{self, prelude::*};
 use std::fs::File;
 
 /* Const declarations */
@@ -107,7 +136,7 @@ fn main() {
     /* Process the icon */
 
     if let Ok(&file) = File::create("myfile.ico") {
-        match icon.write(file) {
+        match icon.write(file, icon_baker::resample::linear) {
             Ok(()) => println!("File 'myfile.ico' saved!"),
             Err(_) => println!("An error occurred ;-;")
         }

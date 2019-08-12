@@ -1,55 +1,39 @@
-use std::io::{self, Write, Seek};
+use std::io::{self, Write};
 use nsvg::image::RgbaImage;
-use zip::result::ZipError;
 use super::{Result, Error};
 
-pub fn png_sequence<W: Write + Seek>(bufs: Vec<RgbaImage>, w: W) -> Result<()> {
-    let mut zip = zip::ZipWriter::new(w);
-    let options = zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+pub fn png_sequence<W: Write>(bufs: Vec<RgbaImage>, w: W) -> Result<()> {
+    let mut tar = tar::Builder::new(w);
     
     for buf in bufs {
-        let (w, h) = buf.dimensions();
+        let size = buf.width();
 
         // Encode the pixel data as PNG and store it in a Vec<u8>
         let mut data = Vec::with_capacity(buf.len());
-        if let Err(err) = png_encode_mini::write_rgba_from_u8(&mut data, &buf.clone().into_raw(), w, h) {
+        if let Err(err) = png_encode_mini::write_rgba_from_u8(&mut data, &buf.clone().into_raw(), size, size) {
             return Err(Error::Io(err));
         }
 
-        let file_name = if w == h {
-            format!("{}.png", w)
-        } else {
-            format!("{}x{}.png", w, h)
-        };
+        let file_name = format!("/{}.png", size);
 
-        if let Err(err) = zip.start_file(file_name, options) {
-            match err {
-                ZipError::Io(err) => return Err(Error::Io(err)),
-                _ => return Err(Error::Zip(err))
-            }
-        }
+        let mut header = tar::Header::new_gnu();
+        header.set_size(data.len() as u64);
+        header.set_cksum();
 
-        if let Err(err) = zip.write_all(&data[..]) {
-            return Err(Error::Io(err))
+        if let Err(err) = tar.append_data::<String, &[u8]>(&mut header, file_name, data.as_ref()) {
+            return Err(Error::Io(err));
         }
     }
 
-    if let Err(err) = zip.finish() {
-        match err {
-            ZipError::Io(err) => return Err(Error::Io(err)),
-            _ => return Err(Error::Zip(err))
-        }
-    } else {
-        Ok(())
-    }
+    Ok(())
 }
 
-pub fn ico<W: Write + Seek>(bufs: Vec<RgbaImage>, w: W) -> Result<()> {
+pub fn ico<W: Write>(bufs: Vec<RgbaImage>, w: W) -> Result<()> {
     let mut output = ico::IconDir::new(ico::ResourceType::Icon);
 
     for buf in bufs {
-        let (w, h) = buf.dimensions();
-        let data = ico::IconImage::from_rgba_data(w, h, buf.clone().into_vec());
+        let size = buf.width();
+        let data = ico::IconImage::from_rgba_data(size, size, buf.clone().into_vec());
 
         match ico::IconDirEntry::encode(&data) {
             Ok(entry) => output.add_entry(entry),
@@ -63,13 +47,13 @@ pub fn ico<W: Write + Seek>(bufs: Vec<RgbaImage>, w: W) -> Result<()> {
     }
 }
 
-pub fn icns<W: Write + Seek>(bufs: Vec<RgbaImage>, w: W) -> Result<()> {
+pub fn icns<W: Write>(bufs: Vec<RgbaImage>, w: W) -> Result<()> {
     let mut output = icns::IconFamily::new();
 
     for buf in bufs {
-        let (w, h) = buf.dimensions();
+        let size = buf.width();
 
-        match icns::Image::from_data(icns::PixelFormat::RGBA, w, h, buf.clone().into_vec()) {
+        match icns::Image::from_data(icns::PixelFormat::RGBA, size, size, buf.clone().into_vec()) {
             Ok(icon) => if let Err(err) = output.add_icon(&icon) {
                 return Err(Error::Io(err))
             },

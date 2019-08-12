@@ -29,15 +29,14 @@
 //! | `PNM ` | `PBM`, `PGM`, `PPM`, standard `PAM`                |
 //! | `SVG`  | Limited(flat filled shapes only)                   |
 
-extern crate zip;
+extern crate tar;
 extern crate png_encode_mini;
 extern crate ico;
 extern crate icns;
 pub extern crate nsvg;
 
-use std::{convert::From, path::Path, marker::Sized, io::{self, Write, Seek}, collections::HashMap};
+use std::{convert::From, path::Path, marker::Sized, io::{self, Write}, collections::HashMap};
 use nsvg::{image::{DynamicImage, RgbaImage, GenericImage}, SvgImage};
-use zip::result::ZipError;
 pub use nsvg::image;
 
 const MAX_ICO_SIZE: u32 = 265;
@@ -77,7 +76,6 @@ pub enum SourceImage {
 pub enum Error {
     Nsvg(nsvg::Error),
     Image(image::ImageError),
-    Zip(ZipError),
     Io(io::Error),
     InvalidIcoSize(Size),
     InvalidIcnsSize(Size),
@@ -223,7 +221,11 @@ impl<'a> Icon<'a> {
     }
 
     /// Writes the icon to a file or stream.
-    pub fn write<W: Write + Seek, F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(&self, w: W, resampler: F) -> Result<()> {
+    pub fn write<W: Write, F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
+        &self,
+        w: W,
+        resampler: F
+    ) -> Result<()> {
         let rasters = self.rasterize(resampler)?;
 
         match self.icon_type {

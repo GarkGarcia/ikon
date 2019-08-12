@@ -1,6 +1,6 @@
 [package]
 name = "icon_baker"
-version = "1.3.0-beta"
+version = "1.3.1-beta"
 authors = ["Gark Garcia <thiago.brevidelli.garcia@protonmail.com>"]
 edition = "2018"
 description = "A simple solution for generating .ico and .icns icons."
@@ -11,7 +11,7 @@ readme = "README.md"
 keywords = ["icon", "ico", "icns"]
 
 [dependencies]
-zip = "0.5.2"
+tar = "0.4.26"
 png_encode_mini = "0.1.2"
 nsvg = "0.5.0"
 ico = "0.1.0"

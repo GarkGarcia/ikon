@@ -5,17 +5,6 @@
 
 A simple solution for generating `.ico` and `.icns` icons. This crate serves as **IconBaker CLI's** internal library.
 
-## Intelligent Re-sampling
-**Icon Baker** uses _[nearest-neighbor re-sampling](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation)_ by default, avoiding blurred edges when up-sizing small bitmap sources:
-
-<img width="480px" height="248px" src="image1.png">
-
-Furthermore, **Icon Baker** only up-sizes bitmap sources on an integer scale, filling the leftover pixels with a transparent border and providing pixel-perfect quality:
-
-<img width="358px" height="222px" src="image2.png">
-
-You can also specify the sampling filter of each `Entry` by modifying their `filter` fields.
-
 ## Supported Image Formats
 | Format | Supported?                                         | 
 | ------ | -------------------------------------------------- | 
@@ -39,17 +28,13 @@ const N_ENTRIES: usize = 1;
 
 fn main() {
     // Creating the icon
-    let mut icon = Icon::ico(n_entries);
+    let mut icon = Icon::ico(N_ENTRIES);
 
     // Importing the source image
     let src_image = SourceImage::from_path("img.jpg").unwrap();
 
     // Configuring the entry
-    let entry = Entry::new(
-        vec![(32, 32), (64, 64)] /* 32x32 and 64x64 sizes */,
-        ResamplingFilter::Linear /* Iterpolate the image */,
-        Crop::Square             /* Square image */
-    );
+    let entry = vec![(32, 32), (64, 64)]; // 32x32 and 64x64 sizes
 
     // Adding the entry
     icon.add_entry(entry, &src_image).unwrap();
@@ -69,22 +54,15 @@ use icon_baker::prelude::*;
 const N_ENTRIES: usize = 2;
 
 fn main() {
-    let mut icon = Icon::ico(n_entries);
+    let mut icon = Icon::ico(N_ENTRIES);
 
     // Importing the source images
     let small = SourceImage::from_path("small.jpg").unwrap();
     let large = SourceImage::from_path("small.png").unwrap();
 
-    // Configuring the entries
-    let filter = ResamplingFilter::Nearest;
-    let crop = Crop::Square;
-
-    let s_entry = Entry::new(vec![(16, 16)], filter, crop);
-    let l_entry = Entry::new(vec![(32, 32)], filter, crop);
-
     // Adding the entries
-    icon.add_entry(s_entry, &small).unwrap();
-    icon.add_entry(l_entry, &large).unwrap();
+    icon.add_entry(vec![(16, 16)], &small).unwrap();
+    icon.add_entry(vec![(32, 32)], &large).unwrap();
 }
 ```
 
@@ -98,18 +76,14 @@ use icon_baker::prelude::*;
 const N_ENTRIES: usize = 2;
 
 fn main() {
-    let mut icon = Icon::ico(n_entries);
+    let mut icon = Icon::ico(N_ENTRIES);
 
     // Importing the source images
     let src1 = SourceImage::from_path("src1.jpg").unwrap();
     let src2 = SourceImage::from_path("src2.png").unwrap();
 
-    // Configuring the entries
-    let filter = ResamplingFilter::Nearest;
-    let crop = Crop::Square;
-
-    let entry1 = Entry::new(vec![(16, 16)], filter, crop);
-    let entry2 = Entry::new(vec![(16, 16)], filter, crop);
+    let entry1 = vec![(16, 16)];
+    let entry2 = vec![(16, 16)];
 
     // Adding the entries
     icon.add_entry(entry1, &src1).expect("Returns Ok(())");

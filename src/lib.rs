@@ -7,17 +7,13 @@
 //! 
 //! fn main() {
 //!     // Creating the icon
-//!     let mut icon = Icon::ico(n_entries);
+//!     let mut icon = Icon::ico(N_ENTRIES);
 //! 
 //!     // Importing the source image
 //!     let src_image = SourceImage::from_path("img.jpg").unwrap();
 //! 
 //!     // Configuring the entry
-//!     let entry = Entry::new(
-//!         vec![(32, 32), (64, 64)] /* 32x32 and 64x64 sizes */,
-//!         ResamplingFilter::Linear /* Iterpolate the image */,
-//!         Crop::Square             /* Square image */
-//!     );
+//!     let entry = vec![(32, 32), (64, 64)]; // 32x32 and 64x64 sizes
 //! 
 //!     // Adding the entry
 //!     icon.add_entry(entry, &src_image).unwrap();
@@ -42,7 +38,7 @@ extern crate ico;
 extern crate icns;
 pub extern crate nsvg;
 
-use std::{convert::From, path::Path, marker::Sized, io::{self, Write, Seek}, default::Default, collections::HashMap};
+use std::{convert::From, path::Path, marker::Sized, io::{self, Write, Seek}, collections::HashMap};
 use nsvg::{image::{DynamicImage, RgbaImage, GenericImage}, SvgImage};
 use zip::result::ZipError;
 pub use nsvg::image;
@@ -57,7 +53,7 @@ type SourceMap<'a> = HashMap<Entry, &'a SourceImage>;
 mod write;
 pub mod resample;
 pub mod prelude {
-    pub use super::{Icon, Entry, IconType, SourceImage, Crop, FromPath};
+    pub use super::{Icon, Entry, IconType, SourceImage, FromPath};
 }
 
 /// A generic representation of an icon.
@@ -66,12 +62,8 @@ pub struct Icon<'a> {
     icon_type: IconType
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-/// A representation of an entry's properties.
-pub struct Entry {
-    sizes: Vec<Size>,
-    pub crop: Crop
-}
+/// A representation of an entry's sizes.
+pub type Entry = Vec<Size>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IconType {
@@ -84,12 +76,6 @@ pub enum IconType {
 pub enum SourceImage {
     Bitmap(DynamicImage),
     Svg(SvgImage)
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Crop {
-    Proportional,
-    Square
 }
 
 #[derive(Debug)]
@@ -159,30 +145,30 @@ impl<'a> Icon<'a> {
     /// 
     /// Returns `Err(Error::SizeAlreadyIncluded(Size))` if any of the sizes listed in `opts.sizes()` is already associated to another entry.
     /// Otherwise returns `Ok(())`.
-    pub fn add_entry(&mut self, opts: Entry, source: &'a SourceImage) -> Result<()> {
+    pub fn add_entry(&mut self, entry: &Entry, source: &'a SourceImage) -> Result<()> {
         let sizes = self.sizes();
 
         if self.icon_type == IconType::Ico {
-            for (w, h) in opts.sizes() {
+            for &(w, h) in entry {
                 if w > MAX_ICO_SIZE || h > MAX_ICO_SIZE || w != h {
                     return Err(Error::InvalidIcoSize((w, h)));
                 }
             }
         } else if self.icon_type == IconType::Icns {
-            for size in opts.sizes() {
+            for &size in entry {
                 if !VALID_ICNS_SIZES.contains(&size) {
                     return Err(Error::InvalidIcnsSize(size));
                 }
             }
         }
 
-        for size in opts.sizes() {
+        for &size in entry {
             if sizes.contains(&size) {
                 return Err(Error::SizeAlreadyIncluded(size));
             }
         }
 
-        self.source_map.insert(opts, source);
+        self.source_map.insert(entry.clone(), source);
 
         Ok(())
     }
@@ -199,8 +185,7 @@ impl<'a> Icon<'a> {
         let mut sizes = Vec::with_capacity(self.n_sizes());
 
         for (entry, _) in &self.source_map {
-            let mut entry_sizes = entry.sizes().clone();
-            sizes.append(&mut entry_sizes);
+            sizes.append(&mut entry.clone());
         }
 
         sizes
@@ -210,14 +195,14 @@ impl<'a> Icon<'a> {
     /// 
     /// This method avoids allocating unnecessary resources when accessing `self.sizes().len()`.
     pub fn n_sizes(&self) -> usize {
-        self.source_map.iter().fold(0, |sum, (entry, _)| sum + entry.n_sizes())
+        self.source_map.iter().fold(0, |sum, (entry, _)| sum + entry.len())
     }
 
     pub fn rasterize<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(&self, resampler: &mut F) -> Result<Vec<RgbaImage>> {
         let mut rasters = Vec::with_capacity(self.n_sizes());
 
-        for (opts, source) in &self.source_map {
-            for size in opts.sizes() {
+        for (sizes, source) in &self.source_map {
+            for &size in sizes {
                 match resampler(source, size) {
                     Ok(rasterized) => rasters.push(rasterized),
                     Err(err) => return Err(err)
@@ -243,34 +228,6 @@ impl<'a> Icon<'a> {
 impl<'a> AsRef<SourceMap<'a>> for Icon<'a> {
     fn as_ref(&self) -> &SourceMap<'a> {
         &self.source_map
-    }
-}
-
-impl Entry {
-    /// Constructs a new `IconOptions`.
-    pub fn new(
-        sizes: Vec<Size>,
-        crop: Crop
-    ) -> Self {
-        Entry { sizes, crop }
-    }
-
-    /// Returns a copy of `self.sizes`.
-    pub fn sizes(&self) -> Vec<Size> {
-        self.sizes.clone()
-    }
-
-    /// Returns the lenght of `self.sizes`.
-    /// 
-    /// This method avoids allocating unnecessary resources when accessing `self.sizes().len()`.
-    pub fn n_sizes(&self) -> usize {
-        self.sizes.len()
-    }
-}
-
-impl Default for Entry {
-    fn default() -> Self {
-        Entry { sizes: Vec::new(), crop: Crop::Square }
     }
 }
 

@@ -50,20 +50,41 @@ type SourceMap<'a> = HashMap<Size, &'a SourceImage>;
 mod write;
 pub mod resample;
 pub mod prelude {
-    pub use super::{Icon, IconType, SourceImage, FromPath};
+    pub use super::{Icon, SourceImage, FromPath};
 }
 
 /// A generic representation of an icon.
-pub struct Icon<'a> {
-    source_map: SourceMap<'a>,
-    icon_type: IconType
+pub struct Icon<W: Write> {
+    raw: RawIcon<W>
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum IconType {
-    Ico,
-    Icns,
-    PngSequence
+struct RawIco<W: Write> {
+    icon_dir: ico::IconDir,
+    writer: W
+}
+
+struct RawIcns<W: Write> {
+    icon_family: icns::IconFamily,
+    buf_writer: io::BufWriter<W>
+}
+
+struct RawPngSequence<W: Write> {
+    tar_builder: tar::Builder<W>
+}
+
+enum RawIcon<W: Write> {
+    Ico(RawIco<W>),
+    Icns(RawIcns<W>),
+    PngSequence(RawPngSequence<W>)
+}
+
+trait GenericIcon {
+    fn add_icon<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
+        &mut self,
+        filter: F,
+        source: &SourceImage,
+        size: Size
+    ) -> Result<()>;
 }
 
 /// A representation of a bitmap or an svg image.
@@ -88,18 +109,111 @@ pub trait FromPath where Self: Sized {
     fn from_path<P: AsRef<Path>>(path: P) -> Option<Self>;
 }
 
-impl<'a> Icon<'a> {
-    /// Creates an `Icon` instance.
-    /// # Arguments
-    /// * `icon_type` The type of the returned icon.
-    /// * `capacity` The target capacity for the underliyng `HashMap<IconOptions, &SourceImage>`.
-    /// 
-    /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero sizes.
-    /// For an explanation of the difference between length and capacity, see
-    /// [*Capacity and reallocation*](https://doc.rust-lang.org/std/vec/struct.Vec.html#capacity-and-reallocation).
-    pub fn new(icon_type: IconType, capacity: usize) -> Self {
-        Icon { source_map: HashMap::with_capacity(capacity), icon_type }
+impl<W: Write> RawIco<W> {
+    pub fn new(w: W) -> Self {
+        RawIco { icon_dir: ico::IconDir::new(ico::ResourceType::Icon), writer: w }
     }
+}
+
+impl<W: Write> GenericIcon for RawIco<W> {
+    fn add_icon<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
+        &mut self,
+        mut filter: F,
+        source: &SourceImage,
+        size: Size
+    ) -> Result<()> {
+            let icon = filter(source, size)?;
+            let size = icon.width();
+            let data = ico::IconImage::from_rgba_data(size, size, icon.clone().into_vec());
+
+            match ico::IconDirEntry::encode(&data) {
+                Ok(entry) => self.icon_dir.add_entry(entry),
+                Err(err) => return Err(Error::Io(err))
+            }
+
+            let mut buf: Vec<u8> = Vec::new();
+
+            match self.icon_dir.write::<&mut [u8]>(buf.as_mut()) {
+                Ok(_) => match self.writer.write_all(buf.as_mut()) {
+                    Ok(_) => Ok(()),
+                    Err(err) => Err(Error::Io(err))
+                },
+                Err(err) => Err(Error::Io(err))
+            }
+    }
+}
+
+impl <W: Write> RawIcns<W> {
+    pub fn new(w: W) -> Self {
+        RawIcns { icon_family: icns::IconFamily::new(), buf_writer: io::BufWriter::new(w) }
+    }
+}
+
+impl<W: Write> GenericIcon for RawIcns<W> {
+    fn add_icon<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
+        &mut self,
+        mut filter: F,
+        source: &SourceImage,
+        size: Size
+    ) -> Result<()> {
+        let icon = filter(source, size)?;
+
+        match icns::Image::from_data(icns::PixelFormat::RGBA, size, size, icon.into_vec()) {
+            Ok(icon) => if let Err(err) = self.icon_family.add_icon(&icon) {
+                return Err(Error::Io(err))
+            },
+            Err(err) => return Err(Error::Io(err))
+        }
+
+        let mut buf: Vec<u8> = Vec::new();
+
+        match self.icon_family.write::<&mut [u8]>(buf.as_mut()) {
+            Ok(_) => match self.buf_writer.write_all(buf.as_mut()) {
+                Ok(_) => Ok(()),
+                Err(err) => Err(Error::Io(err))
+            },
+            Err(err) => Err(Error::Io(err))
+        }
+    }
+}
+
+impl<W: Write> RawPngSequence<W> {
+    pub fn new(w: W) -> Self {
+        RawPngSequence { tar_builder: tar::Builder::new(w) }
+    }
+}
+
+impl<W: Write> GenericIcon for RawPngSequence<W> {
+    fn add_icon<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
+        &mut self,
+        mut filter: F,
+        source: &SourceImage,
+        size: Size
+    ) -> Result<()> {
+        let icon = filter(source, size)?;
+        let size = icon.width();
+    
+        // Encode the pixel data as PNG and store it in a Vec<u8>
+        let mut data = Vec::with_capacity(icon.len());
+        if let Err(err) = png_encode_mini::write_rgba_from_u8(&mut data, &icon.into_raw(), size, size) {
+            return Err(Error::Io(err));
+        }
+    
+        let file_name = format!("/{}.png", size);
+    
+        let mut header = tar::Header::new_gnu();
+        header.set_size(data.len() as u64);
+        header.set_cksum();
+    
+        if let Err(err) = self.tar_builder.append_data::<String, &[u8]>(&mut header, file_name, data.as_ref()) {
+            Err(Error::Io(err))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl<W: Write> Icon<W> {
 
     /// Creates an `Icon` with the `Ico` icon type.
     /// # Arguments
@@ -108,8 +222,8 @@ impl<'a> Icon<'a> {
     /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero sizes.
     /// For an explanation of the difference between length and capacity, see
     /// [*Capacity and reallocation*](https://doc.rust-lang.org/std/vec/struct.Vec.html#capacity-and-reallocation).
-    pub fn ico(capacity: usize) -> Self {
-        Icon::new(IconType::Ico, capacity)
+    pub fn ico(w: W) -> Self {
+        Icon { raw: RawIcon::Ico(RawIco::new(w)) }
     }
 
     /// Creates an `Icon` with the `Icns` icon type.
@@ -119,8 +233,9 @@ impl<'a> Icon<'a> {
     /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero sizes.
     /// For an explanation of the difference between length and capacity, see
     /// [*Capacity and reallocation*](https://doc.rust-lang.org/std/vec/struct.Vec.html#capacity-and-reallocation).
-    pub fn icns(capacity: usize) -> Self {
-        Icon::new(IconType::Icns, capacity)
+    pub fn icns(w: W) -> Self {
+        Icon { raw: RawIcon::Icns(RawIcns::new(w)) }
+
     }
 
     /// Creates an `Icon` with the `PngSequece` icon type.
@@ -130,35 +245,25 @@ impl<'a> Icon<'a> {
     /// It is important to note that although the returned `Icon` has the capacity specified, the `Icon` will have zero sizes.
     /// For an explanation of the difference between length and capacity, see
     /// [*Capacity and reallocation*](https://doc.rust-lang.org/std/vec/struct.Vec.html#capacity-and-reallocation).
-    pub fn png_sequence(capacity: usize) -> Self {
-        Icon::new(IconType::PngSequence, capacity)
+    pub fn png_sequence(w: W) -> Self {
+        Icon { raw: RawIcon::PngSequence(RawPngSequence::new(w)) }
     }
 
     /// Adds a size binding to the icon.
     /// 
     /// Returns `Err(_)` if the specified size is invalid or is already included in the Icon.
     /// Returns `Ok(())` otherwise.
-    pub fn add_size(
+    pub fn add_icon<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
         &mut self,
-        size: Size,
-        source: &'a SourceImage
+        filter: F,
+        source: &SourceImage,
+        size: Size
     ) -> Result<()> {
 
-        if self.icon_type == IconType::Ico {
-            if size > MAX_ICO_SIZE  {
-                return Err(Error::InvalidIcoSize(size));
-            }
-        } else if self.icon_type == IconType::Icns {
-            if !VALID_ICNS_SIZES.contains(&size) {
-                return Err(Error::InvalidIcnsSize(size));
-            }
-        }
-
-        if self.contains_size(size) {
-            Err(Error::SizeAlreadyIncluded(size))
-        } else {
-            let _ = self.source_map.insert(size, source);
-            Ok(())
+        match &mut self.raw {
+            RawIcon::Ico(mut raw)         => raw.add_icon(filter, source, size),
+            RawIcon::Icns(mut raw)        => raw.add_icon(filter, source, size),
+            RawIcon::PngSequence(mut raw) => raw.add_icon(filter, source, size)
         }
     }
 
@@ -166,79 +271,20 @@ impl<'a> Icon<'a> {
     /// 
     /// Returns `Err(_)` if any of the specified sizes is invalid or is already included in the Icon.
     /// Returns `Ok(())` otherwise.
-    pub fn add_sizes<I: ExactSizeIterator<Item = Size>>(
+    pub fn add_icons<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>, I: ExactSizeIterator<Item = Size>>(
         &mut self,
-        sizes: I,
-        source: &'a SourceImage
+        filter: F,
+        source: &SourceImage,
+        sizes: I
     ) -> Result<()> {
 
         for size in sizes {
-            if let Err(err) = self.add_size(size, source) {
+            if let Err(err) = self.add_icon(filter, source, size) {
                 return Err(err);
             }
         }
 
         Ok(())
-    }
-
-    /// Remove a size binding from the icon.
-    /// 
-    /// Returns `Some(&SourceImage)` if the icon contains a size binding associated with the `opts` argument. Returns `None` otherwise.
-    pub fn remove_size(&mut self, size: Size) -> Option<&SourceImage> {
-        self.source_map.remove(&size)
-    }
-
-    /// Returns a list of all sizes listed in all icon's sizes.
-    pub fn sizes(&self) -> Vec<Size> {
-         self.source_map.keys().map(|size| *size).collect()
-    }
-
-    /// Returns the total number of sizes in all icon's sizes.
-    /// 
-    /// This method avoids allocating unnecessary resources when accessing `self.sizes().len()`.
-    pub fn n_sizes(&self) -> usize {
-        self.source_map.len()
-    }
-
-    /// Returns true if `self.source_map` contains `size`. Otherwise returns false.
-    /// 
-    /// This method avoids allocating unnecessary resources when accessing `self.sizes().includes(&size)`.
-    pub fn contains_size(&self, size: Size) -> bool {
-        self.source_map.contains_key(&size)
-    }
-
-    pub fn rasterize<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(&self, mut resampler: F) -> Result<Vec<RgbaImage>> {
-        let mut rasters = Vec::with_capacity(self.n_sizes());
-
-        for (&size, &source) in &self.source_map {
-            match resampler(source, size) {
-                Ok(rasterized) => rasters.push(rasterized),
-                Err(err) => return Err(err)
-            }
-        }
-
-        Ok(rasters)
-    }
-
-    /// Writes the icon to a file or stream.
-    pub fn write<W: Write, F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
-        &self,
-        w: W,
-        resampler: F
-    ) -> Result<()> {
-        let rasters = self.rasterize(resampler)?;
-
-        match self.icon_type {
-            IconType::Ico =>  write::ico(rasters, w),
-            IconType::Icns => write::icns(rasters, w),
-            IconType::PngSequence => write::png_sequence(rasters, w)
-        }
-    }
-}
-
-impl<'a> AsRef<SourceMap<'a>> for Icon<'a> {
-    fn as_ref(&self) -> &SourceMap<'a> {
-        &self.source_map
     }
 }
 
@@ -292,7 +338,7 @@ impl FromPath for SourceImage {
     }
 }
 
-#[cfg(test)]
+/* #[cfg(test)]
 mod test {
     use crate::{Icon, SourceImage, FromPath};
     use std::fs::File;
@@ -310,4 +356,4 @@ mod test {
 
         let _ = icon.write(file, crate::resample::linear);
     }
-}
+} */

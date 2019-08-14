@@ -58,10 +58,6 @@ impl<W: Write> Icon<W> for PngSequence<W> {
         Ok(())
     }
 
-    fn len(&self) -> usize {
-        unimplemented!()
-    }
-
     fn into_inner(self) -> io::Result<W> {
         self.tar_builder.into_inner()
     }

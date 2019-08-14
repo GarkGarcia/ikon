@@ -62,10 +62,6 @@ impl<W: Write> Icon<W> for Icns<W> {
         self.write()
     }
 
-    fn len(&self) -> usize {
-        self.icon_family.total_length() as usize
-    }
-
     fn into_inner(self) -> io::Result<W> {
         Ok(self.writer)
     }

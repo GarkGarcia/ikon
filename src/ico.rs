@@ -70,10 +70,6 @@ impl<W: Write> Icon<W> for Ico<W> {
         self.write()
     }
 
-    fn len(&self) -> usize {
-        self.length
-    }
-
     fn into_inner(self) -> io::Result<W> {
         Ok(self.writer)
     }

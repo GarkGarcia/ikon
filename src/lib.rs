@@ -53,12 +53,23 @@ pub mod prelude {
 pub trait Icon<W: Write> {
     fn new(w: W) -> Self;
 
-    fn add_icon<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
+    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
         &mut self,
         filter: F,
         source: &SourceImage,
         size: Size
     ) -> Result<()>;
+
+    fn add_entries<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>,I: IntoIterator<Item = Size>>(
+        &mut self,
+        filter: F,
+        source: &SourceImage,
+        sizes: I
+    ) -> Result<()>;
+
+    fn len(&self) -> usize;
+
+    fn into_inner(self) -> io::Result<W>;
 }
 
 /// Trait for constructing structs from a given path.
@@ -77,10 +88,7 @@ pub enum SourceImage {
 pub enum Error {
     Nsvg(nsvg::Error),
     Image(image::ImageError),
-    Io(io::Error),
-    InvalidIcoSize(Size),
-    InvalidIcnsSize(Size),
-    SizeAlreadyIncluded(Size)
+    Io(io::Error)
 }
 
 impl SourceImage {

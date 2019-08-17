@@ -1,16 +1,19 @@
 extern crate icns;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
-use std::io::{self, Write};
+use std::{result, io::Write, fmt::{self, Debug, Formatter}};
 use nsvg::image::RgbaImage;
 
-pub struct Icns<W: Write> {
-    icon_family: icns::IconFamily,
-    writer: W
+pub struct Icns {
+    icon_family: icns::IconFamily
 }
 
-impl <W: Write> Icns<W> {
-    fn insert_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
+impl Icon for Icns {
+    fn new() -> Self {
+        Icns { icon_family: icns::IconFamily::new() }
+    }
+
+    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
@@ -18,35 +21,16 @@ impl <W: Write> Icns<W> {
     ) -> Result<()> {
         let icon = filter(source, size)?;
 
-        match icns::Image::from_data(icns::PixelFormat::RGBA, size, size, icon.into_vec()) {
-            Ok(icon) => self.icon_family.add_icon(&icon).map_err(|err| Error::Io(err)),
+        match icns::Image::from_data(
+            icns::PixelFormat::RGBA,
+            size,
+            size,
+            icon.into_vec()
+        ) {
+            Ok(icon) => self.icon_family.add_icon(&icon)
+                .map_err(|err| Error::Io(err)),
             Err(err) => Err(Error::Io(err))
         }
-    }
-
-    fn write(&mut self) -> Result<()> {
-        let mut buf: Vec<u8> = Vec::with_capacity(self.icon_family.total_length() as usize);
-
-        match self.icon_family.write::<&mut [u8]>(buf.as_mut()) {
-            Ok(_)    => self.writer.write_all(buf.as_mut()).map_err(|err| Error::Io(err)),
-            Err(err) => Err(Error::Io(err))
-        }
-    }
-}
-
-impl<W: Write> Icon<W> for Icns<W> {
-    fn new(w: W) -> Self {
-        Icns { icon_family: icns::IconFamily::new(), writer: w }
-    }
-
-    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
-        &mut self,
-        filter: F,
-        source: &SourceImage,
-        size: Size
-    ) -> Result<()> {
-        self.insert_entry(filter, source, size)?;
-        self.write()
     }
 
     fn add_entries<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>, I: IntoIterator<Item = Size>>(
@@ -56,19 +40,50 @@ impl<W: Write> Icon<W> for Icns<W> {
         sizes: I
     ) -> Result<()> {
         for size in sizes.into_iter() {
-            self.insert_entry(|src, size| filter(src, size), source, size)?;
+            self.add_entry(|src, size| filter(src, size), source, size)?;
         }
 
-        self.write()
+        Ok(())
     }
 
-    fn into_inner(self) -> io::Result<W> {
-        Ok(self.writer)
+    fn write<W: Write>(&mut self, w: &mut W) -> Result<()> {
+        self.icon_family.write(w)
+            .map_err(|err| Error::Io(err))
     }
 }
 
-impl<W: Write> AsRef<W> for Icns<W> {
-    fn as_ref(&self) -> &W {
-        &self.writer
+impl Clone for Icns {
+    fn clone(&self) -> Self {
+        let mut icon_family = icns::IconFamily {
+            elements: Vec::with_capacity(self.icon_family.elements.len())
+        };
+
+        for element in &self.icon_family.elements {
+            let clone = icns::IconElement::new(element.ostype, element.data.clone());
+
+            icon_family.elements.push(clone);
+        }
+
+        Icns { icon_family }
+    }
+}
+
+macro_rules! element {
+    ($elm:expr) => {
+        format!("IconElement {{ ostype: {:?}, data: {:?} }}", $elm.ostype, $elm.data )
+    };
+}
+
+impl Debug for Icns {
+    fn fmt(&self, f: &mut Formatter) -> result::Result<(), fmt::Error> {
+        let entries_strs: Vec<String> = self.icon_family.elements.iter()
+            .map(|element| element!(element)).collect();
+
+        let icon_dir = format!(
+            "icns::IconFamily {{ elements: [{}] }}",
+            entries_strs.join(", ")
+        );
+
+        write!(f, "icon_baker::Icns {{ icon_family: {} }} ", icon_dir)
     }
 }

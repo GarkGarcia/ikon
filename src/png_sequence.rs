@@ -2,16 +2,17 @@ extern crate tar;
 extern crate png_encode_mini;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
-use std::io::{self, Write};
+use std::{io::Write, collections::HashMap};
 use nsvg::image::RgbaImage;
 
-pub struct PngSequence<W: Write> {
-    tar_builder: tar::Builder<W>
+#[derive(Clone, Debug)]
+pub struct PngSequence {
+    pngs: HashMap<Size, Vec<u8>>
 }
 
-impl<W: Write> Icon<W> for PngSequence<W> {
-    fn new(w: W) -> Self {
-        PngSequence { tar_builder: tar::Builder::new(w) }
+impl Icon for PngSequence {
+    fn new() -> Self {
+        PngSequence { pngs: HashMap::with_capacity(7) }
     }
 
     fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
@@ -33,16 +34,12 @@ impl<W: Write> Icon<W> for PngSequence<W> {
         ) {
             return Err(Error::Io(err));
         }
-    
-        let file_name = format!("/{}.png", size);
-    
-        let mut header = tar::Header::new_gnu();
-        header.set_size(data.len() as u64);
-        header.set_cksum();
 
-        self.tar_builder
-            .append_data::<String, &[u8]>(&mut header, file_name, data.as_ref())
-            .map_err(|err| Error::Io(err))
+        if let Some(_) = self.pngs.insert(size, data) {
+            unimplemented!()
+        } else {
+            Ok(())
+        }
     }
 
     fn add_entries<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>, I: IntoIterator<Item = Size>>(
@@ -58,13 +55,21 @@ impl<W: Write> Icon<W> for PngSequence<W> {
         Ok(())
     }
 
-    fn into_inner(self) -> io::Result<W> {
-        self.tar_builder.into_inner()
-    }
-}
+    fn write<W: Write>(&mut self, w: &mut W) -> Result<()> {
+        let mut tar_builder = tar::Builder::new(w);
 
-impl<W: Write> AsRef<W> for PngSequence<W> {
-    fn as_ref(&self) -> &W {
-        self.tar_builder.get_ref()
+        for (size, data) in &self.pngs {
+            let path = format!("./{}.png", size);
+
+            let mut header = tar::Header::new_gnu();
+            header.set_size(data.len() as u64);
+            header.set_cksum();
+
+            tar_builder
+                .append_data::<String, &[u8]>(&mut header, path, data.as_ref())
+                .map_err(|err| Error::Io(err))?;
+        }
+
+        Ok(())
     }
 }

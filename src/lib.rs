@@ -42,6 +42,8 @@ pub use png_sequence::PngSequence;
 pub type Size = u32;
 pub type Result<T> = std::result::Result<T, Error>;
 
+#[cfg(test)]
+mod test;
 pub mod ico;
 pub mod icns;
 pub mod png_sequence;
@@ -50,9 +52,9 @@ pub mod prelude {
     pub use crate::{Icon, Ico, Icns, PngSequence, SourceImage, FromPath, resample};
 }
 
-pub trait Icon<W: Write> {
-    /// Creates a new icon with the underlying object `w` as the destination of all data written.
-    fn new(w: W) -> Self;
+pub trait Icon {
+    /// Creates a new icon.
+    fn new() -> Self;
 
     /// Adds an individual entry to the icon.
     /// # Arguments
@@ -79,7 +81,7 @@ pub trait Icon<W: Write> {
     ) -> Result<()>;
 
     /// Unwraps this `Icon`, returning the underlying writer.
-    fn into_inner(self) -> io::Result<W>;
+    fn write<W: Write>(&mut self, w: &mut W) -> Result<()>;
 }
 
 /// A trait for constructing structs from a given path.
@@ -150,23 +152,3 @@ impl FromPath for SourceImage {
         }
     }
 }
-
-/* #[cfg(test)]
-mod test {
-    use crate::{Icon, SourceImage, FromPath};
-    use std::fs::File;
-
-    #[test]
-    fn test_write() {
-        let mut icon = Icon::ico(2);
-        let img1 = SourceImage::from_path("test1.svg").unwrap();
-        let img2 = SourceImage::from_path("test2.svg").unwrap();
-
-        let _ = icon.add_size(32, &img1);
-        let _ = icon.add_size(64, &img2);
-
-        let file = File::create("test.ico").unwrap();
-
-        let _ = icon.write(file, crate::resample::linear);
-    }
-} */

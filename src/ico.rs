@@ -1,17 +1,21 @@
 extern crate ico;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
-use std::io::{self, Write};
+use std::{result, io::Write, fmt::{self, Debug, Formatter}};
 use nsvg::image::RgbaImage;
+use serde::{Serialize, Deserialize};
 
-pub struct Ico<W: Write> {
-    icon_dir: ico::IconDir,
-    writer: W,
-    length: usize
+#[derive(Clone)]
+pub struct Ico {
+    icon_dir: ico::IconDir
 }
 
-impl<W: Write> Ico<W> {
-    fn insert_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
+impl Icon for Ico {
+    fn new() -> Self {
+        Ico { icon_dir: ico::IconDir::new(ico::ResourceType::Icon) }
+    }
+
+    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
@@ -29,34 +33,6 @@ impl<W: Write> Ico<W> {
         Ok(())
     }
 
-    fn write(&mut self) -> Result<()> {
-        let mut buf: Vec<u8> = Vec::with_capacity(self.length);
-
-        match self.icon_dir.write::<&mut [u8]>(buf.as_mut()) {
-            Ok(_)    => {
-                self.length = buf.len();
-                self.writer.write_all(buf.as_mut()).map_err(|err| Error::Io(err))
-            },
-            Err(err) => Err(Error::Io(err))
-        }
-    }
-}
-
-impl<W: Write> Icon<W> for Ico<W> {
-    fn new(w: W) -> Self {
-        Ico { icon_dir: ico::IconDir::new(ico::ResourceType::Icon), writer: w, length: 0 }
-    }
-
-    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
-        &mut self,
-        filter: F,
-        source: &SourceImage,
-        size: Size
-    ) -> Result<()> {
-            self.insert_entry(filter, source, size)?;
-            self.write()
-    }
-
     fn add_entries<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>, I: IntoIterator<Item = Size>>(
         &mut self,
         mut filter: F,
@@ -64,19 +40,32 @@ impl<W: Write> Icon<W> for Ico<W> {
         sizes: I
     ) -> Result<()> {
         for size in sizes.into_iter() {
-            self.insert_entry(|src, size| filter(src, size), source, size)?;
+            self.add_entry(|src, size| filter(src, size), source, size)?;
         }
 
-        self.write()
+        Ok(())
     }
 
-    fn into_inner(self) -> io::Result<W> {
-        Ok(self.writer)
+    fn write<W: Write>(&mut self, w: &mut W) -> Result<()> {
+        self.icon_dir.write(w)
+            .map_err(|err| Error::Io(err))
     }
 }
 
-impl<W: Write> AsRef<W> for Ico<W> {
-    fn as_ref(&self) -> &W {
-        &self.writer
+impl Debug for Ico {
+    fn fmt(&self, f: &mut Formatter) -> result::Result<(), fmt::Error> {
+        let n_entries = self.icon_dir.entries().len();
+        let mut entries_str = String::with_capacity(42 * n_entries);
+
+        for _ in 0..n_entries {
+            entries_str.push_str("ico::IconDirEntry {{ /* fields omitted */ }}, ");
+        }
+
+        let icon_dir= format!(
+            "ico::IconDir {{ restype: ico::ResourceType::Icon, entries: [{:?}] }}",
+            entries_str
+        );
+
+        write!(f, "icon_baker::Ico {{ icon_dir: {} }} ", icon_dir)
     }
 }

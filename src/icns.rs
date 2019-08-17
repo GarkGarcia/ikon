@@ -1,7 +1,7 @@
 extern crate icns;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
-use std::{result, io::Write, fmt::{self, Debug, Formatter}};
+use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
 use nsvg::image::RgbaImage;
 
 pub struct Icns {
@@ -46,9 +46,8 @@ impl Icon for Icns {
         Ok(())
     }
 
-    fn write<W: Write>(&mut self, w: &mut W) -> Result<()> {
+    fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         self.icon_family.write(w)
-            .map_err(|err| Error::Io(err))
     }
 }
 

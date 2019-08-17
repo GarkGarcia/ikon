@@ -2,7 +2,7 @@ extern crate tar;
 extern crate png_encode_mini;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
-use std::{io::Write, collections::HashMap};
+use std::{io::{self, Write}, collections::HashMap};
 use nsvg::image::RgbaImage;
 
 #[derive(Clone, Debug)]
@@ -55,7 +55,7 @@ impl Icon for PngSequence {
         Ok(())
     }
 
-    fn write<W: Write>(&mut self, w: &mut W) -> Result<()> {
+    fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         let mut tar_builder = tar::Builder::new(w);
 
         for (size, data) in &self.pngs {
@@ -66,8 +66,7 @@ impl Icon for PngSequence {
             header.set_cksum();
 
             tar_builder
-                .append_data::<String, &[u8]>(&mut header, path, data.as_ref())
-                .map_err(|err| Error::Io(err))?;
+                .append_data::<String, &[u8]>(&mut header, path, data.as_ref())?;
         }
 
         Ok(())

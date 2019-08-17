@@ -1,9 +1,8 @@
 extern crate ico;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
-use std::{result, io::Write, fmt::{self, Debug, Formatter}};
+use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
 use nsvg::image::RgbaImage;
-use serde::{Serialize, Deserialize};
 
 #[derive(Clone)]
 pub struct Ico {
@@ -46,9 +45,8 @@ impl Icon for Ico {
         Ok(())
     }
 
-    fn write<W: Write>(&mut self, w: &mut W) -> Result<()> {
+    fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         self.icon_dir.write(w)
-            .map_err(|err| Error::Io(err))
     }
 }
 

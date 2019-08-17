@@ -1,4 +1,5 @@
 //! A simple solution for generating `.ico` and `.icns` icons. This crate serves as **IconBaker CLI's** internal library.
+//! 
 //! # Usage
 //! ```rust
 //! use icon_baker::prelude::*;
@@ -44,9 +45,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[cfg(test)]
 mod test;
-pub mod ico;
-pub mod icns;
-pub mod png_sequence;
+mod ico;
+mod icns;
+mod png_sequence;
 pub mod resample;
 pub mod prelude {
     pub use crate::{Icon, Ico, Icns, PngSequence, SourceImage, FromPath, resample};
@@ -54,6 +55,11 @@ pub mod prelude {
 
 pub trait Icon {
     /// Creates a new icon.
+    /// 
+    /// # Example
+    /// ```rust
+    /// let icon = Ico::new();
+    /// ```
     fn new() -> Self;
 
     /// Adds an individual entry to the icon.
@@ -61,6 +67,20 @@ pub trait Icon {
     /// * `filter` The resampling filter that will be used to re-scale `source`.
     /// * `source` A reference to the source image this entry will be based on.
     /// * `size` The target size of the entry in pixels.
+    /// 
+    /// # Example
+    /// ```rust
+    /// use icon_baker::prelude::*;
+    ///  
+    /// fn main() -> icon_baker::Result<()> {
+    ///     let icon = Ico::new();
+    /// 
+    ///     match SourceImage::from_path("image.svg") {
+    ///         Some(img) => icon.add_entry(resample::linear, &img, 32),
+    ///         None      => Ok(())
+    ///     }
+    /// }
+    /// ```
     fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
         &mut self,
         filter: F,
@@ -73,6 +93,24 @@ pub trait Icon {
     /// * `filter` The resampling filter that will be used to re-scale `source`.
     /// * `source` A reference to the source image this entry will be based on.
     /// * `size` A conteiner for the target sizes of the entrie in pixels.
+    /// 
+    /// # Example
+    /// ```rust
+    /// use icon_baker::prelude::*;
+    ///  
+    /// fn main() -> icon_baker::Result<()> {
+    ///     let icon = Icns::new();
+    /// 
+    ///     match SourceImage::from_path("image.svg") {
+    ///         Some(img) => icon.add_entries(
+    ///             resample::linear,
+    ///             &img,
+    ///             vec![32, 64, 128]
+    ///         ),
+    ///         None => Ok(())
+    ///     }
+    /// }
+    /// ```
     fn add_entries<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>,I: IntoIterator<Item = Size>>(
         &mut self,
         filter: F,
@@ -80,8 +118,23 @@ pub trait Icon {
         sizes: I
     ) -> Result<()>;
 
-    /// Unwraps this `Icon`, returning the underlying writer.
-    fn write<W: Write>(&mut self, w: &mut W) -> Result<()>;
+    /// Writes the contents of the icon to `w`.
+    /// 
+    /// # Example
+    /// ```rust
+    /// use icon_baker::prelude::*;
+    /// use std::{io, fs::File};
+    ///  
+    /// fn main() -> io::Result<()> {
+    ///     let icon = PngSequence::new();
+    /// 
+    ///     /* Process the icon */
+    /// 
+    ///     let file = File::create("icon.ico")?;
+    ///     icon.write(file)
+    /// }
+    /// ```
+    fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()>;
 }
 
 /// A trait for constructing structs from a given path.
@@ -122,10 +175,7 @@ impl SourceImage {
 
     /// Returns the dimentions of the original image in pixels.
     pub fn dimentions(&self) -> (f32, f32) {
-        match self {
-            SourceImage::Bitmap(bit) => (bit.width() as f32, bit.height() as f32),
-            SourceImage::Svg(svg)    => (svg.width(), svg.height())
-        }
+        (self.width(), self.height())
     }
 }
 
@@ -145,7 +195,11 @@ impl FromPath for SourceImage {
     fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> {
         if let Ok(din) = image::open(&path) {
             Some(SourceImage::Bitmap(din))
-        } else if let Ok(svg) = nsvg::parse_file(path.as_ref(), nsvg::Units::Pixel, 96.0) {
+        } else if let Ok(svg) = nsvg::parse_file(
+            path.as_ref(),
+            nsvg::Units::Pixel,
+            96.0
+        ) {
             Some(SourceImage::Svg(svg))
         } else {
             None

@@ -103,3 +103,11 @@ However, the coverage provided by this external dependencies should be enough fo
 > Like NanoSVG, the rasterizer only renders flat filled shapes. It is not particularly fast or accurate, but it is a simple way to bake vector graphics into textures.
 
 The author of `icon_baker` is inclined to search for alternatives to `nsvg` if inquired to. Help would be appreciated. 
+
+# License
+
+Licensed under MIT license([LICENSE-MIT](https://github.com/GarkGarcia/icon_baker/blob/master/LICENSE) or http://opensource.org/licenses/MIT).
+
+# Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you shall be licensed as above, without any additional terms or conditions.

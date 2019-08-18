@@ -4,6 +4,7 @@ use crate::{Icon, SourceImage, Size, Result, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
 use nsvg::image::RgbaImage;
 
+/// A collection of entries stored in a single `.ico` file.
 #[derive(Clone)]
 pub struct Ico {
     icon_dir: ico::IconDir

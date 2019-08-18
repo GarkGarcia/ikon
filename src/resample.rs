@@ -1,4 +1,4 @@
-//! A collection of commonly used resampling filter.
+//! A collection of commonly used resampling filters.
 
 use crate::{SourceImage, Size, Result, Error};
 use nsvg::{image::{imageops, DynamicImage, RgbaImage, GenericImage, FilterType}, SvgImage};
@@ -19,7 +19,8 @@ pub fn cubic(source: &SourceImage, size: Size) -> Result<RgbaImage> {
     }
 }
 
-/// [Nearest-Neighbor resampling filter](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation).
+/// [Nearest-Neighbor resampling filter]
+/// (https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation).
 pub fn nearest(source: &SourceImage, size: Size) -> Result<RgbaImage> {
     match source {
         SourceImage::Bitmap(bit) => Ok(nearest::resample(bit, size)),

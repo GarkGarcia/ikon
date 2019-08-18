@@ -5,6 +5,7 @@ use crate::{Icon, SourceImage, Size, Result, Error};
 use std::{io::{self, Write}, collections::HashMap};
 use nsvg::image::RgbaImage;
 
+/// A collection of images stored in a single `.tar` file.
 #[derive(Clone, Debug)]
 pub struct PngSequence {
     pngs: HashMap<Size, Vec<u8>>

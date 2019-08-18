@@ -3,14 +3,13 @@
 //!  for other libraries, unifying existing APIs into a single,
 //!  cohesive interface.
 //! 
-//! This crate serves as **[IconBaker CLI's]
-//! (https://github.com/GarkGarcia/icon-baker)** internal
-//!  library.
+//! This crate serves as **[IconBaker CLI's](https://github.com/GarkGarcia/icon-baker)**
+//!  internal library.
 //! 
 //! # Overview
 //! 
 //! An icon stores a collection of small images of different
-//!  sizes. Individial images within the icon are binded to a
+//!  sizes. Individial images within the icon are bound to a
 //!  source image, which is rescaled to fit a particular size
 //!  using a resampling filter.
 //! 
@@ -83,7 +82,7 @@ mod icns;
 mod png_sequence;
 pub mod resample;
 
-/// A generinic representation of an icon encoder.
+/// A generic representation of an icon encoder.
 pub trait Icon {
     /// Creates a new icon.
     /// 
@@ -119,7 +118,7 @@ pub trait Icon {
         size: Size
     ) -> Result<()>;
 
-    /// Adds a serie of entries to the icon.
+    /// Adds a series of entries to the icon.
     /// # Arguments
     /// * `filter` The resampling filter that will be used to re-scale `source`.
     /// * `source` A reference to the source image this entry will be based on.
@@ -177,10 +176,13 @@ pub enum SourceImage {
 }
 
 #[derive(Debug)]
-/// The error type operations of the Icon trait.
+/// The error type for operations of the Icon trait.
 pub enum Error {
+    /// Error from the `nsvg` crate.
     Nsvg(nsvg::Error),
+    /// Error from the `image` crate.
     Image(image::ImageError),
+    /// Generic I/O Error
     Io(io::Error)
 }
 
@@ -224,8 +226,8 @@ impl SourceImage {
         }
     }
 
-    /// Returns the dimentions of the original image in pixels.
-    pub fn dimentions(&self) -> (f32, f32) {
+    /// Returns the dimensions of the original image in pixels.
+    pub fn dimensions(&self) -> (f32, f32) {
         (self.width(), self.height())
     }
 }
@@ -267,5 +269,23 @@ impl error::Error for Error {
             Error::Image(err)  => err.source(),
             Error::Io(ref err) => Some(err)
         }
+    }
+}
+
+impl From<nsvg::Error> for Error {
+    fn from(err: nsvg::Error) -> Self {
+        Error::Nsvg(err)
+    }
+}
+
+impl From<image::ImageError> for Error {
+    fn from(err: image::ImageError) -> Self {
+        Error::Image(err)
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Self {
+        Error::Io(err)
     }
 }

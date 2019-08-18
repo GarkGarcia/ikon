@@ -1,16 +1,21 @@
+# IconBaker
+[![Crate](https://img.shields.io/crates/v/icon_baker.svg)](https://crates.io/crates/icon_baker)
+[![API](https://docs.rs/icon_baker/badge.svg)](https://docs.rs/icon_baker)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-1.32+-lightgray.svg)](https://github.com/rust-random/rand#rust-version-requirements)
+
 A simple solution for encoding common icon file formats, such as `.ico` and `.icns`. This crate is mostly a wrapper for other libraries, unifying existing APIs into a single, cohesive interface.
 
 This crate serves as **[IconBaker CLI's](https://github.com/GarkGarcia/icon-baker)** internal library.
 
-# Overview
+## Overview
 
-An icon stores a collection of small images of different sizes. Individial images within the icon are binded to a source image, which is rescaled to fit a particular size using a resampling filter.
+An icon stores a collection of small images of different sizes. Individual images within the icon are bound to a source image, which is rescaled to fit a particular size using a resampling filter.
 
 Resampling filters are represented by functions that take a source image and a size and return a rescaled raw RGBA buffer. This allows the user of this crate to provide their custom resampling filter. Common resampling filters are provided by the `resample` module.
 
-# Examples
+## Examples
 
-## General Usage
+### General Usage
 ```rust
 use icon_baker::*;
  
@@ -24,7 +29,7 @@ fn main() -> icon_baker::Result<()> {
 }
 ```
 
-## Writing to a File
+### Writing to a File
 ```rust
 use icon_baker::*;
 use std::{io, fs::File};
@@ -39,12 +44,12 @@ fn main() -> io::Result<()> {
 }
 ```
 
-# Limitations
+## Limitations
 There are two main limitations in this crate: both `ICNS` and `SVG` are not fully supported. Due to the use of external dependencies, this crate is not able to fully support the formal specifications of those two file formats.
 
 However, the coverage provided by this external dependencies should be enough for most use cases.
 
-## Supported Image Formats
+### Supported Image Formats
 | Format | Supported?                                         | 
 | ------ | -------------------------------------------------- | 
 | `PNG`  | All supported color types                          | 
@@ -57,7 +62,7 @@ However, the coverage provided by this external dependencies should be enough fo
 | `PNM ` | `PBM`, `PGM`, `PPM`, standard `PAM`                |
 | `SVG`  | Limited(flat filled shapes only)                   |
 
-## ICNS Support
+### ICNS Support
 
 **Icon Baker** uses the `icns` crate for generating `.icns` files. The [supported icon types](https://github.com/mdsteele/rust-icns/blob/master/README.md#supported-icon-types) are specified by the creators of such crate as follows:
 
@@ -96,7 +101,7 @@ However, the coverage provided by this external dependencies should be enough fo
 | `ic13` | 128x128@2x "retina" 32-bit PNG/JP2 icon | PNG only   |
 | `ic14` | 256x256@2x "retina" 32-bit PNG/JP2 icon | PNG only   |
 
-## SVG Support
+### SVG Support
 
 **IconBaker** uses the `nsvg` crate for rasterizing `.svg` files. According to the authors of the crate:
 
@@ -104,10 +109,10 @@ However, the coverage provided by this external dependencies should be enough fo
 
 The author of `icon_baker` is inclined to search for alternatives to `nsvg` if inquired to. Help would be appreciated. 
 
-# License
+## License
 
 Licensed under MIT license([LICENSE-MIT](https://github.com/GarkGarcia/icon_baker/blob/master/LICENSE) or http://opensource.org/licenses/MIT).
 
-# Contribution
+## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you shall be licensed as above, without any additional terms or conditions.

@@ -4,6 +4,8 @@ use crate::{Icon, SourceImage, Size, Result, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
 use nsvg::image::RgbaImage;
 
+const VALID_ICNS_SIZES: [Size;7] = [16, 32, 64, 128, 256, 512, 1024];
+
 /// A collection of entries stored in a single `.icns` file.
 pub struct Icns {
     icon_family: icns::IconFamily
@@ -20,6 +22,10 @@ impl Icon for Icns {
         source: &SourceImage,
         size: Size
     ) -> Result<()> {
+        if !VALID_ICNS_SIZES.contains(&size) {
+            return Err(Error::InvalidSize(size));
+        }
+
         let icon = filter(source, size)?;
 
         match icns::Image::from_data(

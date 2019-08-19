@@ -4,6 +4,8 @@ use crate::{Icon, SourceImage, Size, Result, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
 use nsvg::image::RgbaImage;
 
+const MAX_ICO_SIZES: Size = 256;
+
 /// A collection of entries stored in a single `.ico` file.
 #[derive(Clone)]
 pub struct Ico {
@@ -21,6 +23,10 @@ impl Icon for Ico {
         source: &SourceImage,
         size: Size
     ) -> Result<()> {
+        if size > MAX_ICO_SIZES {
+            return Err(Error::InvalidSize(size));
+        }
+
         let icon = filter(source, size)?;
         let size = icon.width();
         let data = ico::IconImage::from_rgba_data(size, size, icon.clone().into_vec());

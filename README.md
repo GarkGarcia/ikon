@@ -11,7 +11,7 @@ This crate serves as **[IconBaker CLI's](https://github.com/GarkGarcia/icon-bake
 
 An icon stores a collection of small images of different sizes. Individual images within the icon are bound to a source image, which is rescaled to fit a particular size using a resampling filter.
 
-Resampling filters are represented by functions that take a source image and a size and return a rescaled raw RGBA buffer. This allows the user of this crate to provide their custom resampling filter. Common resampling filters are provided by the `resample` module.
+Resampling filters are represented by functions that take a source image and a size and return a rescaled raw RGBA buffer. This allows the users of this crate to provide their custom resampling filters. Common resampling filters are provided by the `resample` module.
 
 ## Examples
 
@@ -19,7 +19,7 @@ Resampling filters are represented by functions that take a source image and a s
 ```rust
 use icon_baker::*;
  
-fn main() -> icon_baker::Result<()> {
+fn example() -> icon_baker::Result<()> {
     let icon = Ico::new();
 
     match SourceImage::from_path("image.svg") {
@@ -34,7 +34,7 @@ fn main() -> icon_baker::Result<()> {
 use icon_baker::*;
 use std::{io, fs::File};
  
-fn main() -> io::Result<()> {
+fn example() -> io::Result<()> {
     let icon = PngSequence::new();
 
     /* Process the icon */
@@ -45,9 +45,9 @@ fn main() -> io::Result<()> {
 ```
 
 ## Limitations
-There are two main limitations in this crate: both `ICNS` and `SVG` are not fully supported. Due to the use of external dependencies, this crate is not able to fully support the formal specifications of those two file formats.
+There are two main limitations in this crate: both `ICNS` and `SVG` are not fully supported. Due to the use of external dependencies, the author of this crate is not able to fully support the formal specifications of those two file formats.
 
-However, the coverage provided by this external dependencies should be enough for most use cases.
+However, the coverage provided by these external dependencies should be enough for most use cases.
 
 ### Supported Image Formats
 | Format | Supported?                                         | 
@@ -103,7 +103,7 @@ However, the coverage provided by this external dependencies should be enough fo
 
 ### SVG Support
 
-**IconBaker** uses the `nsvg` crate for rasterizing `.svg` files. According to the authors of the crate:
+**IconBaker** uses the `nsvg` crate to rasterize `.svg` files. According to the authors of the crate:
 
 > Like NanoSVG, the rasterizer only renders flat filled shapes. It is not particularly fast or accurate, but it is a simple way to bake vector graphics into textures.
 

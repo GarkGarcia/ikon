@@ -15,8 +15,8 @@
 //! 
 //! Resampling filters are represented by functions that take
 //!  a source image and a size and return a rescaled raw RGBA
-//!  buffer. This allows the user of this crate to provide
-//!  their custom resampling filter. Common resampling filters
+//!  buffer. This allows the users of this crate to provide
+//!  their custom resampling filters. Common resampling filters
 //!  are provided by the `resample` module.
 //! 
 //! # Examples
@@ -25,7 +25,7 @@
 //! ```rust
 //! use icon_baker::*;
 //!  
-//! fn main() -> icon_baker::Result<()> {
+//! fn example() -> icon_baker::Result<()> {
 //!     let icon = Ico::new();
 //! 
 //!     match SourceImage::from_path("image.svg") {
@@ -40,7 +40,7 @@
 //! use icon_baker::*;
 //! use std::{io, fs::File};
 //!  
-//! fn main() -> io::Result<()> {
+//! fn example() -> io::Result<()> {
 //!     let icon = PngSequence::new();
 //! 
 //!     /* Process the icon */
@@ -81,6 +81,8 @@ mod ico;
 mod icns;
 mod png_sequence;
 pub mod resample;
+
+const INVALID_SIZE_ERROR: &str = "invalid size suplied to the add_entry method";
 
 /// A generic representation of an icon encoder.
 pub trait Icon {
@@ -176,13 +178,15 @@ pub enum SourceImage {
 }
 
 #[derive(Debug)]
-/// The error type for operations of the Icon trait.
+/// The error type for operations of the `Icon` trait.
 pub enum Error {
     /// Error from the `nsvg` crate.
     Nsvg(nsvg::Error),
     /// Error from the `image` crate.
     Image(image::ImageError),
-    /// Generic I/O Error
+    /// An unsupported size was suplied to an `Icon` operation.
+    InvalidSize(Size),
+    /// Generic I/O error.
     Io(io::Error)
 }
 
@@ -247,9 +251,10 @@ impl From<DynamicImage> for SourceImage {
 impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::Nsvg(err)  => write!(f, "{}", err),
-            Error::Image(err) => write!(f, "{}", err),
-            Error::Io(err)    => write!(f, "{}", err)
+            Error::Nsvg(err)      => write!(f, "{}", err),
+            Error::Image(err)     => write!(f, "{}", err),
+            Error::Io(err)        => write!(f, "{}", err),
+            Error::InvalidSize(_) => write!(f, "{}", INVALID_SIZE_ERROR)
         }
     }
 }
@@ -257,17 +262,19 @@ impl Display for Error {
 impl error::Error for Error {
     fn description(&self) -> &str {
         match self {
-            Error::Nsvg(err)  => err.description(),
-            Error::Image(err) => err.description(),
-            Error::Io(err)    => err.description()
+            Error::Nsvg(err)      => err.description(),
+            Error::Image(err)     => err.description(),
+            Error::Io(err)        => err.description(),
+            Error::InvalidSize(_) => INVALID_SIZE_ERROR
         }
     }
 
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            Error::Nsvg(err)   => err.source(),
-            Error::Image(err)  => err.source(),
-            Error::Io(ref err) => Some(err)
+            Error::Nsvg(err)      => err.source(),
+            Error::Image(err)     => err.source(),
+            Error::Io(ref err)    => Some(err),
+            Error::InvalidSize(_) => None
         }
     }
 }

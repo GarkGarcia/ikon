@@ -9,7 +9,7 @@
 //! # Overview
 //! 
 //! An icon stores a collection of small images of different
-//!  sizes. Individial images within the icon are bound to a
+//!  sizes. Individual images within the icon are bound to a
 //!  source image, which is rescaled to fit a particular size
 //!  using a resampling filter.
 //! 
@@ -82,7 +82,7 @@ mod icns;
 mod png_sequence;
 pub mod resample;
 
-const INVALID_SIZE_ERROR: &str = "invalid size suplied to the add_entry method";
+const INVALID_SIZE_ERROR: &str = "invalid size supplied to the add_entry method";
 
 /// A generic representation of an icon encoder.
 pub trait Icon {
@@ -95,10 +95,19 @@ pub trait Icon {
     fn new() -> Self;
 
     /// Adds an individual entry to the icon.
+    /// 
     /// # Arguments
     /// * `filter` The resampling filter that will be used to re-scale `source`.
     /// * `source` A reference to the source image this entry will be based on.
     /// * `size` The target size of the entry in pixels.
+    /// 
+    /// # Return Value
+    /// * Returns `Err(Error::InvalidSize(_))` if the dimensions provided in the
+    ///  `size` argument is not supported.
+    /// * Returns `Err(Error::Image(ImageError::DimensionError))`
+    ///  if the resampling filter provided in the `filter` argument produces
+    ///  results of dimensions other than the ones specified in `size`.
+    /// * Otherwise return `Ok(())`.
     /// 
     /// # Example
     /// ```rust
@@ -124,7 +133,15 @@ pub trait Icon {
     /// # Arguments
     /// * `filter` The resampling filter that will be used to re-scale `source`.
     /// * `source` A reference to the source image this entry will be based on.
-    /// * `size` A conteiner for the target sizes of the entrie in pixels.
+    /// * `size` A container for the target sizes of the entries in pixels.
+    /// 
+    /// # Return Value
+    /// * Returns `Err(Error::InvalidSize(_))` if the dimensions provided in the
+    ///  `size` argument is not supported.
+    /// * Returns `Err(Error::Image(ImageError::DimensionError))`
+    ///  if the resampling filter provided in the `filter` argument produces
+    ///  results of dimensions other than the ones specified in `size`.
+    /// * Otherwise return `Ok(())`.
     /// 
     /// # Example
     /// ```rust

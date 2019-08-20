@@ -103,10 +103,10 @@ pub trait Icon {
     /// 
     /// # Return Value
     /// * Returns `Err(Error::InvalidSize(_))` if the dimensions provided in the
-    ///  `size` argument is not supported.
+    ///  `size` argument are not supported.
     /// * Returns `Err(Error::Image(ImageError::DimensionError))`
     ///  if the resampling filter provided in the `filter` argument produces
-    ///  results of dimensions other than the ones specified in `size`.
+    ///  results of dimensions other than the ones specified by `size`.
     /// * Otherwise return `Ok(())`.
     /// 
     /// # Example
@@ -137,10 +137,10 @@ pub trait Icon {
     /// 
     /// # Return Value
     /// * Returns `Err(Error::InvalidSize(_))` if the dimensions provided in the
-    ///  `size` argument is not supported.
+    ///  `size` argument are not supported.
     /// * Returns `Err(Error::Image(ImageError::DimensionError))`
     ///  if the resampling filter provided in the `filter` argument produces
-    ///  results of dimensions other than the ones specified in `size`.
+    ///  results of dimensions other than the ones specified by `size`.
     /// * Otherwise return `Ok(())`.
     /// 
     /// # Example

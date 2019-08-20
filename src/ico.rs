@@ -2,9 +2,10 @@ extern crate ico;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
-use nsvg::image::RgbaImage;
+use nsvg::image::{RgbaImage, ImageError};
 
-const MAX_ICO_SIZES: Size = 256;
+const MIN_ICO_SIZE: Size = 1;
+const MAX_ICO_SIZE: Size = 256;
 
 /// A collection of entries stored in a single `.ico` file.
 #[derive(Clone)]
@@ -23,18 +24,20 @@ impl Icon for Ico {
         source: &SourceImage,
         size: Size
     ) -> Result<()> {
-        if size > MAX_ICO_SIZES {
+        if size < MIN_ICO_SIZE || size > MAX_ICO_SIZE {
             return Err(Error::InvalidSize(size));
         }
 
         let icon = filter(source, size)?;
-        let size = icon.width();
-        let data = ico::IconImage::from_rgba_data(size, size, icon.clone().into_vec());
-
-        match ico::IconDirEntry::encode(&data) {
-            Ok(entry) => self.icon_dir.add_entry(entry),
-            Err(err)  => return Err(Error::Io(err))
+        if icon.width() != size || icon.height() != size {
+            return Err(Error::Image(ImageError::DimensionError));
         }
+
+        let size = icon.width();
+        let data = ico::IconImage::from_rgba_data(size, size, icon.into_vec());
+
+        let entry = ico::IconDirEntry::encode(&data).map_err(|err| Error::Io(err))?;
+        self.icon_dir.add_entry(entry);
 
         Ok(())
     }

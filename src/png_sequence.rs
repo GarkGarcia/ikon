@@ -2,18 +2,21 @@ extern crate tar;
 extern crate png_encode_mini;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
-use std::{io::{self, Write}, collections::HashMap};
-use nsvg::image::RgbaImage;
+use std::{io::{self, Write}, collections::{HashMap, BTreeSet}};
+use nsvg::image::{RgbaImage, ImageError};
+
+const MIN_PNG_SIZE: Size = 1;
+const STD_CAPACITY: usize = 7;
 
 /// A collection of images stored in a single `.tar` file.
 #[derive(Clone, Debug)]
 pub struct PngSequence {
-    pngs: HashMap<Size, Vec<u8>>
+    images: HashMap<Size, BTreeSet<Vec<u8>>>
 }
 
 impl Icon for PngSequence {
     fn new() -> Self {
-        PngSequence { pngs: HashMap::with_capacity(7) }
+        PngSequence { images: HashMap::with_capacity(STD_CAPACITY) }
     }
 
     fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
@@ -22,8 +25,14 @@ impl Icon for PngSequence {
         source: &SourceImage,
         size: Size
     ) -> Result<()> {
+        if size < MIN_PNG_SIZE {
+            return Err(Error::InvalidSize(size));
+        }
+
         let icon = filter(source, size)?;
-        let size = icon.width();
+        if icon.width() != size || icon.height() != size {
+            return Err(Error::Image(ImageError::DimensionError));
+        }
     
         // Encode the pixel data as PNG and store it in a Vec<u8>
         let mut data = Vec::with_capacity(icon.len());
@@ -36,11 +45,8 @@ impl Icon for PngSequence {
             return Err(Error::Io(err));
         }
 
-        if let Some(_) = self.pngs.insert(size, data) {
-            unimplemented!()
-        } else {
-            Ok(())
-        }
+        self.images.entry(size).or_default().insert(data);
+        Ok(())
     }
 
     fn add_entries<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>, I: IntoIterator<Item = Size>>(
@@ -59,15 +65,31 @@ impl Icon for PngSequence {
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         let mut tar_builder = tar::Builder::new(w);
 
-        for (size, data) in &self.pngs {
-            let path = format!("./{}.png", size);
+        macro_rules! append {
+            ($image:expr, $path:expr) => {
+                let mut header = tar::Header::new_gnu();
+                header.set_size($image.len() as u64);
+                header.set_cksum();
+    
+                tar_builder
+                    .append_data::<String, &[u8]>(&mut header, $path, $image.as_ref())?;
+            };
+        }
 
-            let mut header = tar::Header::new_gnu();
-            header.set_size(data.len() as u64);
-            header.set_cksum();
+        for (size, images) in &self.images {
+            if images.len() == 1 {
+                let path = format!("./{}.png", size);
+                for image in images { append!(image, path); break; }
+            } else {
+                let mut c = 0;
 
-            tar_builder
-                .append_data::<String, &[u8]>(&mut header, path, data.as_ref())?;
+                for image in images {
+                    let path = format!("./{}-{}.png", size, c);
+                    append!(image, path);
+
+                    c += 1;
+                }
+            }
         }
 
         Ok(())

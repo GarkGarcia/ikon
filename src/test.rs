@@ -51,6 +51,10 @@ fn test_ico() {
         panic!("{:?}", err);
     }
 
+    if let Err(err) = icon.add_entry(resample::nearest, &img, 32) {
+        panic!("{:?}", err);
+    }
+
     if let Err(err) = icon.write(&mut file) {
         panic!("{:?}", err);
     }
@@ -58,14 +62,22 @@ fn test_ico() {
 
 #[test]
 fn test_icns() {
-    let mut file = BufWriter::new(File::create("tests/test.ico")
+    let mut file = BufWriter::new(File::create("tests/test.icns")
         .expect("Couldn't create file"));
 
     let mut icon = Icns::new();
     let img = SourceImage::from_path("tests/24.png")
         .expect("File not found");
 
-    if let Err(err) = icon.add_entry(resample::linear, &img, 32) {
+    if let Err(err) = icon.add_entries(resample::nearest, &img, vec![32, 64]) {
+        panic!("{:?}", err);
+    }
+
+    if let Err(err) = icon.add_entry(resample::nearest, &img, 128) {
+        panic!("{:?}", err);
+    }
+
+    if let Err(err) = icon.add_entry(resample::nearest, &img, 32) {
         panic!("{:?}", err);
     }
 

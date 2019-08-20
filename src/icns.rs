@@ -2,9 +2,7 @@ extern crate icns;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
-use nsvg::image::RgbaImage;
-
-const VALID_ICNS_SIZES: [Size;7] = [16, 32, 64, 128, 256, 512, 1024];
+use nsvg::image::{RgbaImage, ImageError};
 
 /// A collection of entries stored in a single `.icns` file.
 pub struct Icns {
@@ -22,22 +20,17 @@ impl Icon for Icns {
         source: &SourceImage,
         size: Size
     ) -> Result<()> {
-        if !VALID_ICNS_SIZES.contains(&size) {
-            return Err(Error::InvalidSize(size));
-        }
-
         let icon = filter(source, size)?;
 
-        match icns::Image::from_data(
-            icns::PixelFormat::RGBA,
-            size,
-            size,
-            icon.into_vec()
-        ) {
-            Ok(icon) => self.icon_family.add_icon(&icon)
-                .map_err(|err| Error::Io(err)),
-            Err(err) => Err(Error::Io(err))
-        }
+        // The Image::from_data method only fails when the specified
+        // image dimensions do not fit the buffer length
+        let image = icns::Image::from_data(icns::PixelFormat::RGBA, size, size, icon.into_vec())
+            .map_err(|_| Error::Image(ImageError::DimensionError))?;
+
+        // The IconFamily::add_icon method only fails when the
+        // specified image dimensions are not supported by ICNS
+        self.icon_family.add_icon(&image)
+            .map_err(|_| Error::InvalidSize(size))
     }
 
     fn add_entries<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>, I: IntoIterator<Item = Size>>(

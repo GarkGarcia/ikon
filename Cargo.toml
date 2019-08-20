@@ -5,7 +5,6 @@ authors = ["Gark Garcia <thiago.brevidelli.garcia@protonmail.com>"]
 edition = "2018"
 description = "A simple solution for encoding common icon file formats."
 license-file = "LICENSE"
-license = "MIT"
 repository = "https://github.com/GarkGarcia/icon_baker"
 homepage = "https://github.com/GarkGarcia/icon_baker"
 readme = "README.md"

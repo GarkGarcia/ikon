@@ -3,7 +3,7 @@
 //!  for other libraries, unifying existing APIs into a single,
 //!  cohesive interface.
 //! 
-//! This crate serves as **[IconBaker CLI's](https://github.com/GarkGarcia/icon-baker)**
+//! This crate serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)**
 //!  internal library.
 //! 
 //! # Overview

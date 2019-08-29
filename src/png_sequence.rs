@@ -1,9 +1,9 @@
 extern crate tar;
-extern crate png_encode_mini;
+extern crate nsvg;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
 use std::{io::{self, Write}, collections::{HashMap, BTreeSet}};
-use nsvg::image::{RgbaImage, ImageError};
+use nsvg::image::{png::PNGEncoder, RgbaImage, ImageError, ColorType};
 
 const MIN_PNG_SIZE: Size = 1;
 const STD_CAPACITY: usize = 7;
@@ -36,14 +36,9 @@ impl Icon for PngSequence {
     
         // Encode the pixel data as PNG and store it in a Vec<u8>
         let mut data = Vec::with_capacity(icon.len());
-        if let Err(err) = png_encode_mini::write_rgba_from_u8(
-            &mut data,
-            &icon.into_raw(),
-            size,
-            size
-        ) {
-            return Err(Error::Io(err));
-        }
+        let encoder = PNGEncoder::new(&mut data);
+        encoder.encode(&icon.into_raw(), size, size, ColorType::RGBA(8))
+            .map_err(|err| Error::Io(err))?;
 
         self.images.entry(size).or_default().insert(data);
         Ok(())

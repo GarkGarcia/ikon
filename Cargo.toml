@@ -1,6 +1,6 @@
 [package]
 name = "icon_baker"
-version = "2.1.2"
+version = "2.2.0"
 authors = ["Gark Garcia <thiago.brevidelli.garcia@protonmail.com>"]
 edition = "2018"
 description = "A simple solution for encoding common icon file formats."
@@ -12,7 +12,6 @@ keywords = ["icon", "ico", "icns"]
 
 [dependencies]
 tar = "0.4.26"
-png_encode_mini = "0.1.2"
 nsvg = "0.5.0"
 ico = "0.1.0"
 icns = "0.3.0"

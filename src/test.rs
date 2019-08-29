@@ -1,16 +1,18 @@
 use crate::*;
 use std::{fs::File, io::BufWriter};
+use nsvg::image::{png::PNGEncoder, ColorType};
 
 macro_rules! png {
     ($r: expr, $s: expr, $w:expr) => {
         match $r(&$s, 32) {
-            Ok(scaled) => png_encode_mini::write_rgba_from_u8(
-                $w,
-                scaled.into_vec().as_ref(),
-                32,
-                32
-            ).expect("Couldn't write to file."),
-            Err(err) => panic!(err)
+            Ok(scaled) => {
+                let (w, h) = scaled.dimensions();
+                let encoder = PNGEncoder::new($w);
+
+                encoder.encode(&scaled.into_raw(), w, h, ColorType::RGBA(8))
+                    .expect("Could not encode or save the png output");
+            },
+            Err(err) => panic!("{:?}", err)
         }
     };
 }

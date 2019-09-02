@@ -124,7 +124,7 @@ pub trait Icon {
     ///     }
     /// }
     /// ```
-    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
+    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<DynamicImage>>(
         &mut self,
         filter: F,
         source: &SourceImage,
@@ -162,7 +162,7 @@ pub trait Icon {
     ///     }
     /// }
     /// ```
-    fn add_entries<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>,I: IntoIterator<Item = Size>>(
+    fn add_entries<F: FnMut(&SourceImage, Size) -> Result<DynamicImage>,I: IntoIterator<Item = Size>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
@@ -290,15 +290,6 @@ impl Display for Error {
 }
 
 impl error::Error for Error {
-    fn description(&self) -> &str {
-        match self {
-            Error::Usvg(err)      => err.description(),
-            Error::Image(err)     => err.description(),
-            Error::Io(err)        => err.description(),
-            Error::InvalidSize(_) => INVALID_SIZE_ERROR
-        }
-    }
-
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Error::Usvg(err)      => err.source(),
@@ -331,6 +322,7 @@ impl From<cairo::IoError> for Error {
     fn from(err: cairo::IoError) -> Self {
         match err {
             cairo::IoError::Io(err)  => Error::from(err),
+            // TODO This should be more detailed
             cairo::IoError::Cairo(_) => Error::Io(io::Error::from(io::ErrorKind::Other))
         }
     }

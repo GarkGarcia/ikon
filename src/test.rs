@@ -8,8 +8,9 @@ macro_rules! png {
             Ok(scaled) => {
                 let (w, h) = scaled.dimensions();
                 let encoder = PNGEncoder::new($w);
+                let data = scaled.to_rgba().into_raw();
 
-                encoder.encode(&scaled.into_raw(), w, h, ColorType::RGBA(8))
+                encoder.encode(&data, w, h, ColorType::RGBA(8))
                     .expect("Could not encode or save the png output");
             },
             Err(err) => panic!("{:?}", err)
@@ -28,12 +29,19 @@ fn test_resample() {
     let mut file_cubic  = File::create("tests/test_cubic.png")
         .expect("Couldn't create file");
 
-    let img = SourceImage::from_path("tests/hydra.png")
+    let mut file_svg    = File::create("tests/test_svg.png")
+        .expect("Couldn't create file");
+
+    let hydra = SourceImage::from_path("tests/hydra.png")
         .expect("File not found");
 
-    png!(resample::nearest, &img, &mut file_near);
-    png!(resample::linear , &img, &mut file_linear);
-    png!(resample::cubic  , &img, &mut file_cubic);
+    let box_svg = SourceImage::from_path("tests/box.svg")
+        .expect("File not found");
+
+    png!(resample::nearest, &hydra  , &mut file_near);
+    png!(resample::linear , &hydra  , &mut file_linear);
+    png!(resample::cubic  , &hydra  , &mut file_cubic);
+    png!(resample::nearest, &box_svg, &mut file_svg);
 }
 
 #[test]

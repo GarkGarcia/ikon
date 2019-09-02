@@ -3,7 +3,7 @@ extern crate image;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
 use std::{io::{self, Write}, collections::{HashMap, BTreeSet}};
-use image::{png::PNGEncoder, RgbaImage, ImageError, ColorType};
+use image::{png::PNGEncoder, DynamicImage, GenericImageView, ImageError, ColorType};
 
 const MIN_PNG_SIZE: Size = 1;
 const STD_CAPACITY: usize = 7;
@@ -19,7 +19,7 @@ impl Icon for PngSequence {
         PngSequence { images: HashMap::with_capacity(STD_CAPACITY) }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
+    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<DynamicImage>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
@@ -33,13 +33,15 @@ impl Icon for PngSequence {
         if icon.width() != size || icon.height() != size {
             return Err(Error::Image(ImageError::DimensionError));
         }
+
+        let data = icon.to_rgba().into_raw();
     
         // Encode the pixel data as PNG and store it in a Vec<u8>
-        let mut data = Vec::with_capacity(icon.len());
-        let encoder = PNGEncoder::new(&mut data);
-        encoder.encode(&icon.into_raw(), size, size, ColorType::RGBA(8))?;
+        let mut image = Vec::with_capacity(data.len());
+        let encoder = PNGEncoder::new(&mut image);
+        encoder.encode(&data, size, size, ColorType::RGBA(8))?;
 
-        self.images.entry(size).or_default().insert(data);
+        self.images.entry(size).or_default().insert(image);
         Ok(())
     }
 

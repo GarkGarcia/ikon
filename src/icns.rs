@@ -2,7 +2,7 @@ extern crate icns;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
-use image::{RgbaImage, ImageError};
+use image::{DynamicImage, ImageError};
 
 /// A collection of entries stored in a single `.icns` file.
 pub struct Icns {
@@ -14,17 +14,18 @@ impl Icon for Icns {
         Icns { icon_family: icns::IconFamily::new() }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
+    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<DynamicImage>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
         size: Size
     ) -> Result<()> {
         let icon = filter(source, size)?;
+        let data = icon.to_rgba().into_vec();
 
         // The Image::from_data method only fails when the specified
         // image dimensions do not fit the buffer length
-        let image = icns::Image::from_data(icns::PixelFormat::RGBA, size, size, icon.into_vec())
+        let image = icns::Image::from_data(icns::PixelFormat::RGBA, size, size, data)
             .map_err(|_| Error::Image(ImageError::DimensionError))?;
 
         // The IconFamily::add_icon method only fails when the

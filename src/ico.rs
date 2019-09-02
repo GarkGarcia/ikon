@@ -2,7 +2,7 @@ extern crate ico;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
-use image::{RgbaImage, ImageError};
+use image::{DynamicImage, ImageError, GenericImageView};
 
 const MIN_ICO_SIZE: Size = 1;
 const MAX_ICO_SIZE: Size = 256;
@@ -18,7 +18,7 @@ impl Icon for Ico {
         Ico { icon_dir: ico::IconDir::new(ico::ResourceType::Icon) }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
+    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<DynamicImage>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
@@ -34,9 +34,10 @@ impl Icon for Ico {
         }
 
         let size = icon.width();
-        let data = ico::IconImage::from_rgba_data(size, size, icon.into_vec());
+        let data = icon.to_rgba().into_vec();
+        let image = ico::IconImage::from_rgba_data(size, size, data);
 
-        let entry = ico::IconDirEntry::encode(&data)?;
+        let entry = ico::IconDirEntry::encode(&image)?;
         self.icon_dir.add_entry(entry);
 
         Ok(())

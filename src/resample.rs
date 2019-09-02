@@ -2,27 +2,27 @@
 
 use crate::{SourceImage, Size, Result, Error};
 use std::io::{self, Cursor, BufReader};
-use image::{imageops, DynamicImage, RgbaImage, GenericImageView, FilterType, ImageFormat};
+use image::{imageops, DynamicImage, GenericImageView, FilterType, ImageFormat};
 use resvg::{usvg::{self, Tree}, cairo::ImageSurface, FitTo};
 
 /// [Linear resampling filter](https://en.wikipedia.org/wiki/Linear_interpolation).
-pub fn linear(source: &SourceImage, size: Size) -> Result<RgbaImage> {
+pub fn linear(source: &SourceImage, size: Size) -> Result<DynamicImage> {
     match source {
-        SourceImage::Raster(bit) => Ok(scale(bit, size, FilterType::Triangle).to_rgba()),
+        SourceImage::Raster(bit) => Ok(scale(bit, size, FilterType::Triangle)),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
     }
 }
 
 /// [Lanczos resampling filter](https://en.wikipedia.org/wiki/Lanczos_resampling).
-pub fn cubic(source: &SourceImage, size: Size) -> Result<RgbaImage> {
+pub fn cubic(source: &SourceImage, size: Size) -> Result<DynamicImage> {
     match source {
-        SourceImage::Raster(bit) => Ok(scale(bit, size, FilterType::Lanczos3).to_rgba()),
+        SourceImage::Raster(bit) => Ok(scale(bit, size, FilterType::Lanczos3)),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
     }
 }
 
 /// [Nearest-Neighbor resampling filter](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation).
-pub fn nearest(source: &SourceImage, size: Size) -> Result<RgbaImage> {
+pub fn nearest(source: &SourceImage, size: Size) -> Result<DynamicImage> {
     match source {
         SourceImage::Raster(bit) => Ok(nearest::resample(bit, size)),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
@@ -32,9 +32,9 @@ pub fn nearest(source: &SourceImage, size: Size) -> Result<RgbaImage> {
 mod nearest {
     use super::{overfit, scale};
     use crate::Size;
-    use image::{imageops, DynamicImage, RgbaImage, GenericImageView, FilterType};
+    use image::{imageops, DynamicImage, GenericImageView, FilterType};
 
-    pub fn resample(source: &DynamicImage, size: Size) -> RgbaImage {
+    pub fn resample(source: &DynamicImage, size: Size) -> DynamicImage {
         let scaled = if source.width() < size as u32 && source.height() < size as u32 {
             scale_integer(source, size)
         } else {
@@ -62,17 +62,17 @@ fn scale(source: &DynamicImage, size: Size, filter: FilterType) -> DynamicImage 
     DynamicImage::ImageRgba8(imageops::resize(source, nw, nh, filter))
 }
 
-fn overfit(source: &DynamicImage, size: Size) -> RgbaImage {
+fn overfit(source: &DynamicImage, size: Size) -> DynamicImage {
     let mut output = DynamicImage::new_rgba8(size, size);
 
     let dx = (output.width()  - source.width() ) / 2;
     let dy = (output.height() - source.height()) / 2;
 
     imageops::overlay(&mut output, source, dx, dy);
-    output.to_rgba()
+    output
 }
 
-fn svg_linear(source: &Tree, size: Size) -> Result<RgbaImage> {
+fn svg_linear(source: &Tree, size: Size) -> Result<DynamicImage> {
     let rect = source.svg_node().view_box.rect;
     let (w, h) = (rect.width, rect.height);
     let fit_to = if w > h { FitTo::Width(size) } else { FitTo::Height(size) };
@@ -89,7 +89,7 @@ fn svg_linear(source: &Tree, size: Size) -> Result<RgbaImage> {
     }
 }
 
-fn cairo_surface_to_rgba(surface: &ImageSurface, size: Size) -> Result<RgbaImage> {
+fn cairo_surface_to_rgba(surface: &ImageSurface, size: Size) -> Result<DynamicImage> {
     let len = surface.get_stride() * surface.get_height();
     let mut data = Vec::with_capacity(len as usize);
     surface.write_to_png(&mut data)?;

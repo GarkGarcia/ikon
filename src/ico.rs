@@ -2,7 +2,7 @@ extern crate ico;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
-use nsvg::image::{RgbaImage, ImageError};
+use image::{RgbaImage, ImageError};
 
 const MIN_ICO_SIZE: Size = 1;
 const MAX_ICO_SIZE: Size = 256;
@@ -36,7 +36,7 @@ impl Icon for Ico {
         let size = icon.width();
         let data = ico::IconImage::from_rgba_data(size, size, icon.into_vec());
 
-        let entry = ico::IconDirEntry::encode(&data).map_err(|err| Error::Io(err))?;
+        let entry = ico::IconDirEntry::encode(&data)?;
         self.icon_dir.add_entry(entry);
 
         Ok(())

@@ -1,7 +1,9 @@
 //! A collection of commonly used resampling filters.
 
 use crate::{SourceImage, Size, Result, Error};
-use nsvg::{image::{imageops, DynamicImage, RgbaImage, GenericImage, FilterType}, SvgImage};
+use std::io::{self, Cursor, BufReader};
+use image::{imageops, DynamicImage, RgbaImage, GenericImageView, FilterType, ImageFormat};
+use resvg::{usvg::{self, Tree}, cairo::ImageSurface, FitTo};
 
 /// [Linear resampling filter](https://en.wikipedia.org/wiki/Linear_interpolation).
 pub fn linear(source: &SourceImage, size: Size) -> Result<RgbaImage> {
@@ -29,7 +31,8 @@ pub fn nearest(source: &SourceImage, size: Size) -> Result<RgbaImage> {
 
 mod nearest {
     use super::{overfit, scale};
-    use crate::{nsvg::image::{imageops, DynamicImage, RgbaImage, GenericImage, FilterType}, Size};
+    use crate::Size;
+    use image::{imageops, DynamicImage, RgbaImage, GenericImageView, FilterType};
 
     pub fn resample(source: &DynamicImage, size: Size) -> RgbaImage {
         let scaled = if source.width() < size as u32 && source.height() < size as u32 {
@@ -65,17 +68,32 @@ fn overfit(source: &DynamicImage, size: Size) -> RgbaImage {
     let dx = (output.width()  - source.width() ) / 2;
     let dy = (output.height() - source.height()) / 2;
 
-    imageops::overlay(&mut output, &source, dx, dy);
+    imageops::overlay(&mut output, source, dx, dy);
     output.to_rgba()
 }
 
-fn svg_linear(source: &SvgImage, size: Size) -> Result<RgbaImage> {  
-    let (w, h) = (source.width(), source.height());
-    let size_f = size as f32;
+fn svg_linear(source: &Tree, size: Size) -> Result<RgbaImage> {
+    let rect = source.svg_node().view_box.rect;
+    let (w, h) = (rect.width, rect.height);
+    let fit_to = if w > h { FitTo::Width(size) } else { FitTo::Height(size) };
 
-    let scale = if w > h { size_f / w } else { size_f / h };
+    let opts = resvg::Options {
+        usvg: usvg::Options::default(),
+        fit_to,
+        background: None
+    };
 
-    source.rasterize(scale)
-        .map(|raster| Ok(overfit(&DynamicImage::ImageRgba8(raster), size)))
-        .map_err(|err| Error::Nsvg(err))?
+    match resvg::backend_cairo::render_to_image(source, &opts) {
+        Some(surface) => cairo_surface_to_rgba(&surface, size),
+        None => Err(Error::Io(io::Error::from(io::ErrorKind::AddrNotAvailable)))
+    }
+}
+
+fn cairo_surface_to_rgba(surface: &ImageSurface, size: Size) -> Result<RgbaImage> {
+    let len = surface.get_stride() * surface.get_height();
+    let mut data = Vec::with_capacity(len as usize);
+    surface.write_to_png(&mut data)?;
+
+    let output = image::load(BufReader::new(Cursor::new(data)), ImageFormat::PNG)?;
+    Ok(overfit(&output, size))
 }

@@ -37,8 +37,7 @@ impl Icon for FavIcon {
         // Encode the pixel data as PNG and store it in a Vec<u8>
         let mut data = Vec::with_capacity(icon.len());
         let encoder = PNGEncoder::new(&mut data);
-        encoder.encode(&icon.into_raw(), size, size, ColorType::RGBA(8))
-            .map_err(|err| Error::Io(err))?;
+        encoder.encode(&icon.into_raw(), size, size, ColorType::RGBA(8))?;
 
         self.images.entry(size).or_default().insert(data);
         Ok(())

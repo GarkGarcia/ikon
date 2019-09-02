@@ -1,6 +1,6 @@
 use crate::*;
 use std::{fs::File, io::BufWriter};
-use nsvg::image::{png::PNGEncoder, ColorType};
+use image::{png::PNGEncoder, ColorType};
 
 macro_rules! png {
     ($r: expr, $s: expr, $w:expr) => {

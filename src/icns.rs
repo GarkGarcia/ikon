@@ -2,7 +2,7 @@ extern crate icns;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
-use nsvg::image::{RgbaImage, ImageError};
+use image::{RgbaImage, ImageError};
 
 /// A collection of entries stored in a single `.icns` file.
 pub struct Icns {

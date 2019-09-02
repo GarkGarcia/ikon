@@ -33,19 +33,6 @@ impl Icon for Icns {
             .map_err(|_| Error::InvalidSize(size))
     }
 
-    fn add_entries<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>, I: IntoIterator<Item = Size>>(
-        &mut self,
-        mut filter: F,
-        source: &SourceImage,
-        sizes: I
-    ) -> Result<()> {
-        for size in sizes.into_iter() {
-            self.add_entry(|src, size| filter(src, size), source, size)?;
-        }
-
-        Ok(())
-    }
-
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         self.icon_family.write(w)
     }

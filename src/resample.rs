@@ -6,7 +6,7 @@ use nsvg::{image::{imageops, DynamicImage, RgbaImage, GenericImage, FilterType},
 /// [Linear resampling filter](https://en.wikipedia.org/wiki/Linear_interpolation).
 pub fn linear(source: &SourceImage, size: Size) -> Result<RgbaImage> {
     match source {
-        SourceImage::Bitmap(bit) => Ok(scale(bit, size, FilterType::Triangle).to_rgba()),
+        SourceImage::Raster(bit) => Ok(scale(bit, size, FilterType::Triangle).to_rgba()),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
     }
 }
@@ -14,7 +14,7 @@ pub fn linear(source: &SourceImage, size: Size) -> Result<RgbaImage> {
 /// [Lanczos resampling filter](https://en.wikipedia.org/wiki/Lanczos_resampling).
 pub fn cubic(source: &SourceImage, size: Size) -> Result<RgbaImage> {
     match source {
-        SourceImage::Bitmap(bit) => Ok(scale(bit, size, FilterType::Lanczos3).to_rgba()),
+        SourceImage::Raster(bit) => Ok(scale(bit, size, FilterType::Lanczos3).to_rgba()),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
     }
 }
@@ -22,7 +22,7 @@ pub fn cubic(source: &SourceImage, size: Size) -> Result<RgbaImage> {
 /// [Nearest-Neighbor resampling filter](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation).
 pub fn nearest(source: &SourceImage, size: Size) -> Result<RgbaImage> {
     match source {
-        SourceImage::Bitmap(bit) => Ok(nearest::resample(bit, size)),
+        SourceImage::Raster(bit) => Ok(nearest::resample(bit, size)),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
     }
 }

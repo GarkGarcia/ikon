@@ -71,6 +71,7 @@ pub use nsvg::{image::{self, DynamicImage, RgbaImage, GenericImage}, SvgImage};
 pub use crate::ico::Ico;
 pub use crate::icns::Icns;
 pub use crate::png_sequence::PngSequence;
+pub use crate::favicon::FavIcon;
 
 pub type Size = u32;
 pub type Result<T> = result::Result<T, Error>;
@@ -79,6 +80,7 @@ pub type Result<T> = result::Result<T, Error>;
 mod test;
 mod ico;
 mod icns;
+mod favicon;
 mod png_sequence;
 pub mod resample;
 
@@ -162,10 +164,16 @@ pub trait Icon {
     /// ```
     fn add_entries<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>,I: IntoIterator<Item = Size>>(
         &mut self,
-        filter: F,
+        mut filter: F,
         source: &SourceImage,
         sizes: I
-    ) -> Result<()>;
+    ) -> Result<()> {
+        for size in sizes.into_iter() {
+            self.add_entry(|src, size| filter(src, size), source, size)?;
+        }
+
+        Ok(())
+    }
 
     /// Writes the contents of the icon to `w`.
     /// 
@@ -189,7 +197,7 @@ pub trait Icon {
 /// A representation of a source image.
 pub enum SourceImage {
     /// A generic raster image.
-    Bitmap(DynamicImage),
+    Raster(DynamicImage),
     /// A svg-encoded vector image.
     Svg(SvgImage)
 }
@@ -219,7 +227,7 @@ impl SourceImage {
     /// ```
     pub fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> {
         match image::open(&path) {
-            Ok(bit) => Some(SourceImage::Bitmap(bit)),
+            Ok(bit) => Some(SourceImage::Raster(bit)),
             Err(_)  => match nsvg::parse_file(
                 path.as_ref(),
                 nsvg::Units::Pixel,
@@ -234,7 +242,7 @@ impl SourceImage {
     /// Returns the width of the original image in pixels.
     pub fn width(&self) -> f32 {
         match self {
-            SourceImage::Bitmap(bit) => bit.width() as f32,
+            SourceImage::Raster(bit) => bit.width() as f32,
             SourceImage::Svg(svg)    => svg.width()
         }
     }
@@ -242,7 +250,7 @@ impl SourceImage {
     /// Returns the height of the original image in pixels.
     pub fn height(&self) -> f32 {
         match self {
-            SourceImage::Bitmap(bit) => bit.height() as f32,
+            SourceImage::Raster(bit) => bit.height() as f32,
             SourceImage::Svg(svg)    => svg.height()
         }
     }
@@ -261,7 +269,7 @@ impl From<SvgImage> for SourceImage {
 
 impl From<DynamicImage> for SourceImage {
     fn from(bit: DynamicImage) -> Self {
-        SourceImage::Bitmap(bit)
+        SourceImage::Raster(bit)
     }
 }
 

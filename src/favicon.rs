@@ -2,7 +2,7 @@ extern crate tar;
 extern crate nsvg;
 
 use crate::{Icon, SourceImage, Size, Result, Error};
-use std::{io::{self, Write}, collections::{HashMap, BTreeSet}};
+use std::{io::{self, Write}, path::Path, collections::{HashMap, BTreeSet}};
 use nsvg::image::{png::PNGEncoder, RgbaImage, ImageError, ColorType};
 
 const MIN_PNG_SIZE: Size = 1;
@@ -10,13 +10,13 @@ const STD_CAPACITY: usize = 7;
 
 /// A collection of images stored in a single `.tar` file.
 #[derive(Clone, Debug)]
-pub struct PngSequence {
+pub struct FavIcon {
     images: HashMap<Size, BTreeSet<Vec<u8>>>
 }
 
-impl Icon for PngSequence {
+impl Icon for FavIcon {
     fn new() -> Self {
-        PngSequence { images: HashMap::with_capacity(STD_CAPACITY) }
+        FavIcon { images: HashMap::with_capacity(STD_CAPACITY) }
     }
 
     fn add_entry<F: FnMut(&SourceImage, Size) -> Result<RgbaImage>>(
@@ -46,34 +46,47 @@ impl Icon for PngSequence {
 
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         let mut tar_builder = tar::Builder::new(w);
+        let mut xml: Vec<u8> = Vec::with_capacity(63 * self.images.len() + 54);
 
-        macro_rules! append {
-            ($image:expr, $path:expr) => {
-                let mut header = tar::Header::new_gnu();
-                header.set_size($image.len() as u64);
-                header.set_cksum();
-    
-                tar_builder
-                    .append_data::<String, &[u8]>(&mut header, $path, $image.as_ref())?;
-            };
-        }
+        write!(xml, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n")?;
 
-         for (size, images) in &self.images {
+        for (size, images) in &self.images {
             if images.len() == 1 {
-                let path = format!("./{}/icon.png", size);
-                for image in images { append!(image, path); break; }
+                let path = format!("./icons/favicon-{0}x{0}.png", size);
+                write!(xml, "<link rel=\"icon\" href={0} sizes\"{1}x{1}\">\n", path, size)?;
+
+                for image in images { append_data(&mut tar_builder, image, path)?; break; }
             } else {
                 let mut c = 0;
 
                 for image in images {
-                    let path = format!("./{}/icon@{}.png", size, c);
-                    append!(image, path);
+                    let path = format!("./icons/favicon-{}@{}.png", size, c);
 
+                    write!(
+                        xml,
+                        "<link rel=\"icon\" href={0} sizes\"{1}x{1}\">",
+                        path, size
+                    )?;
+
+                    append_data(&mut tar_builder, image, path)?;
                     c += 1;
                 }
             }
         }
-
-        Ok(())
+        
+        append_data(&mut tar_builder, &xml, "./favicon.xml")
     }
+}
+
+#[inline]
+fn append_data<W: Write, P: AsRef<Path>>(
+    builder: &mut tar::Builder<W>,
+    data: &Vec<u8>,
+    path: P
+) -> io::Result<()> {
+    let mut header = tar::Header::new_gnu();
+    header.set_size(data.len() as u64);
+    header.set_cksum();
+
+    builder.append_data::<_, &[u8]>(&mut header, path, data.as_ref())
 }

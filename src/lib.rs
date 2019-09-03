@@ -1,9 +1,8 @@
 //! A simple solution for encoding common icon file-formats, such as `.ico` and `.icns`. 
 //! 
 //! This crate is mostly a wrapper for other libraries, unifying existing APIs into a single, cohesive 
-//! interface.
-//! 
-//! **IconBaker** serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)** internal library.
+//! interface. **IconBaker** serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)** internal 
+//! library.
 //! 
 //! # Overview
 //! 
@@ -54,6 +53,7 @@ pub extern crate image;
 pub extern crate resvg;
 
 use std::{result, error, convert::From, path::Path, io::{self, Write}, fmt::{self, Display}};
+use image::ImageError;
 pub use image::{DynamicImage, RgbaImage, GenericImage, GenericImageView};
 pub use resvg::{usvg::{self, Tree}, cairo};
 
@@ -192,10 +192,10 @@ pub enum SourceImage {
 #[derive(Debug)]
 /// The error type for operations of the `Icon` trait.
 pub enum Error {
-    /// Error from the `nsvg` crate.
+    /// Error from the `usvg` crate.
     Usvg(usvg::Error),
     /// Error from the `image` crate.
-    Image(image::ImageError),
+    Image(ImageError),
     /// An unsupported size was suplied to an `Icon` operation.
     InvalidSize(Size),
     /// Generic I/O error.
@@ -293,9 +293,12 @@ impl From<usvg::Error> for Error {
     }
 }
 
-impl From<image::ImageError> for Error {
-    fn from(err: image::ImageError) -> Self {
-        Error::Image(err)
+impl From<ImageError> for Error {
+    fn from(err: ImageError) -> Self {
+        match err {
+            ImageError::IoError(err) => Error::Io(err),
+            err => Error::Image(err)
+        }
     }
 }
 
@@ -311,6 +314,37 @@ impl From<cairo::IoError> for Error {
             cairo::IoError::Io(err)  => Error::from(err),
             // TODO This should be more detailed
             cairo::IoError::Cairo(_) => Error::Io(io::Error::from(io::ErrorKind::Other))
+        }
+    }
+}
+
+impl Into<io::Error> for Error {
+    fn into(self) -> io::Error {
+        match self {
+              Error::Image(ImageError::IoError(err))
+            | Error::Io(err) => err,
+
+              Error::InvalidSize(_) 
+            | Error::Usvg(usvg::Error::NotAnUtf8Str)
+            | Error::Usvg(usvg::Error::InvalidSize)
+            | Error::Usvg(usvg::Error::InvalidFileSuffix)
+            => io::Error::from(io::ErrorKind::InvalidInput),
+
+              Error::Image(ImageError::DimensionError)
+            | Error::Image(ImageError::FormatError(_))
+            | Error::Image(ImageError::UnsupportedColor(_))
+            | Error::Image(ImageError::UnsupportedError(_))
+            | Error::Usvg(usvg::Error::MalformedGZip)
+            | Error::Usvg(usvg::Error::ParsingFailed(_))
+            => io::Error::from(io::ErrorKind::InvalidData),
+
+              Error::Image(ImageError::ImageEnd)
+            | Error::Image(ImageError::NotEnoughData)
+            => io::Error::from(io::ErrorKind::UnexpectedEof),
+
+              Error::Image(ImageError::InsufficientMemory)
+            | Error::Usvg(usvg::Error::FileOpenFailed)
+            => io::Error::from(io::ErrorKind::Other)
         }
     }
 }

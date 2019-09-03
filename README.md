@@ -52,7 +52,7 @@ fn example() -> io::Result<()> {
 
     /* Process the icon */
 
-    let file = File::create("ou.icns")?;
+    let file = File::create("out.icns")?;
     icon.write(file)
 }
 ```

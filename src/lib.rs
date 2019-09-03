@@ -1,27 +1,26 @@
-//! A simple solution for encoding common icon file formats,
-//!  such as `.ico` and `.icns`. This crate is mostly a wrapper
-//!  for other libraries, unifying existing APIs into a single,
-//!  cohesive interface.
+//! A simple solution for encoding common icon file-formats, such as `.ico` and `.icns`. 
 //! 
-//! This crate serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)**
-//!  internal library.
+//! This crate is mostly a wrapper for other libraries, unifying existing APIs into a single, cohesive 
+//! interface.
+//! 
+//! **IconBaker** serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)** internal library.
 //! 
 //! # Overview
 //! 
-//! An icon stores a collection of small images of different
-//!  sizes. Individual images within the icon are bound to a
-//!  source image, which is rescaled to fit a particular size
-//!  using a resampling filter.
+//! An _icon_ consists of a set of _entries_. An _entry_ is simply an image that has a particular size.
+//! **IconBaker** simply automates the process of re-scaling pictures and combining them into an _icon_.
 //! 
-//! Resampling filters are represented by functions that take
-//!  a source image and a size and return a rescaled raw RGBA
-//!  buffer. This allows the users of this crate to provide
-//!  their custom resampling filters. Common resampling filters
-//!  are provided by the `resample` module.
+//! Pictures are scaled using resampling filters, which are represented by _functions that take a source_ 
+//! _image and a size and return a re-scaled image_.
+//! 
+//! This allows the users of this crate to provide their custom resampling filters. Common resampling 
+//! filters are provided in the 
+//! [`resample`](https://docs.rs/icon_baker/2.2.0/icon_baker/resample/index.html) module.
 //! 
 //! # Examples
 //! 
 //! ## General Usage
+//! 
 //! ```rust
 //! use icon_baker::*;
 //!  
@@ -36,6 +35,7 @@
 //! ```
 //! 
 //! ## Writing to a File
+//! 
 //! ```rust
 //! use icon_baker::*;
 //! use std::{io, fs::File};
@@ -49,19 +49,6 @@
 //!     icon.write(file)
 //! }
 //! ```
-//! 
-//! # Supported Image Formats
-//! | Format | Supported?                                         | 
-//! | ------ | -------------------------------------------------- | 
-//! | `PNG`  | All supported color types                          | 
-//! | `JPEG` | Baseline and progressive                           | 
-//! | `GIF`  | Yes                                                | 
-//! | `BMP`  | Yes                                                | 
-//! | `ICO`  | Yes                                                | 
-//! | `TIFF` | Baseline(no fax support), `LZW`, PackBits          | 
-//! | `WEBP` | Lossy(Luma channel only)                           | 
-//! | `PNM ` | `PBM`, `PGM`, `PPM`, standard `PAM`                |
-//! | `SVG`  | Limited(flat filled shapes only)                   |
 
 pub extern crate image;
 pub extern crate resvg;

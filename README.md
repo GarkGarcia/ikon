@@ -9,8 +9,7 @@
 A simple solution for encoding common icon file-formats, such as `.ico` and `.icns`. 
 
 This crate is mostly a wrapper for other libraries, unifying existing APIs into a single, cohesive 
-interface. **IconBaker** serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)** internal 
-library.
+interface. It serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)** internal library.
 
 # Overview
 

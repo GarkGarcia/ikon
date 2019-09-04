@@ -1,9 +1,9 @@
 //! A collection of commonly used resampling filters.
 
 use crate::{SourceImage, Size, Result, Error};
-use std::io::{self, Cursor, BufReader};
-use image::{imageops, DynamicImage, GenericImageView, FilterType, ImageFormat};
-use resvg::{usvg::{self, Tree}, cairo::ImageSurface, FitTo};
+use std::io;
+use image::{imageops, DynamicImage, ImageBuffer, GenericImageView, FilterType, Bgra, ImageError};
+use resvg::{usvg::{self, Tree}, raqote::DrawTarget , FitTo};
 
 /// [Linear resampling filter](https://en.wikipedia.org/wiki/Linear_interpolation).
 pub fn linear(source: &SourceImage, size: Size) -> Result<DynamicImage> {
@@ -74,7 +74,7 @@ fn overfit(source: &DynamicImage, size: Size) -> DynamicImage {
 
 fn svg_linear(source: &Tree, size: Size) -> Result<DynamicImage> {
     let rect = source.svg_node().view_box.rect;
-    let (w, h) = (rect.width, rect.height);
+    let (w, h) = (rect.width(), rect.height());
     let fit_to = if w > h { FitTo::Width(size) } else { FitTo::Height(size) };
 
     let opts = resvg::Options {
@@ -83,17 +83,18 @@ fn svg_linear(source: &Tree, size: Size) -> Result<DynamicImage> {
         background: None
     };
 
-    match resvg::backend_cairo::render_to_image(source, &opts) {
-        Some(surface) => cairo_surface_to_rgba(&surface, size),
+    match resvg::backend_raqote::render_to_image(source, &opts) {
+        Some(surface) => draw_target_to_rgba(surface, size),
         None => Err(Error::Io(io::Error::from(io::ErrorKind::AddrNotAvailable)))
     }
 }
 
-fn cairo_surface_to_rgba(surface: &ImageSurface, size: Size) -> Result<DynamicImage> {
-    let len = surface.get_stride() * surface.get_height();
-    let mut data = Vec::with_capacity(len as usize);
-    surface.write_to_png(&mut data)?;
+fn draw_target_to_rgba(mut surface: DrawTarget, size: Size) -> Result<DynamicImage> {
+    let (w, h) = (surface.width() as u32, surface.height() as u32);
+    let data = surface.get_data_u8_mut().to_vec();
 
-    let output = image::load(BufReader::new(Cursor::new(data)), ImageFormat::PNG)?;
-    Ok(overfit(&output, size))
+    match ImageBuffer::<Bgra<u8>, Vec<u8>>::from_vec(w, h, data) {
+        Some(buf) => Ok(overfit(&DynamicImage::ImageBgra8(buf), size)),
+        None => Err(Error::Image(ImageError::NotEnoughData))
+    }
 }

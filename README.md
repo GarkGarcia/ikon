@@ -2,7 +2,7 @@
 
 [![Crate](https://img.shields.io/crates/v/icon_baker.svg)](https://crates.io/crates/icon_baker)
 [![API](https://docs.rs/icon_baker/badge.svg)](https://docs.rs/icon_baker)
-![Minimum rustc version](https://img.shields.io/badge/rustc-1.32+-lightgray.svg)
+![Minimum rustc version](https://img.shields.io/badge/rustc-1.37+-lightgray.svg)
 ![Downloads](https://img.shields.io/crates/d/icon_baker)
 [![License](https://img.shields.io/github/license/GarkGarcia/icon_baker)](https://github.com/GarkGarcia/icon_baker/blob/master/LICENSE)
 

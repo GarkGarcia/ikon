@@ -55,7 +55,7 @@ pub extern crate resvg;
 use std::{result, error, convert::From, path::Path, io::{self, Write}, fmt::{self, Display}};
 use image::ImageError;
 pub use image::{DynamicImage, RgbaImage, GenericImage, GenericImageView};
-pub use resvg::{usvg::{self, Tree}, cairo};
+pub use resvg::{usvg::{self, Tree}, raqote};
 
 pub use crate::ico::Ico;
 pub use crate::icns::Icns;
@@ -247,7 +247,7 @@ impl SourceImage {
             SourceImage::Svg(svg) => {
                 let rect = svg.svg_node().view_box.rect;
 
-                (rect.width - rect.x as f64, rect.height - rect.y as f64)
+                (rect.width() as f64, rect.height() as f64)
             }
         }
     }
@@ -308,7 +308,7 @@ impl From<io::Error> for Error {
     }
 }
 
-impl From<cairo::IoError> for Error {
+/* impl From<cairo::IoError> for Error {
     fn from(err: cairo::IoError) -> Self {
         match err {
             cairo::IoError::Io(err)  => Error::from(err),
@@ -316,7 +316,7 @@ impl From<cairo::IoError> for Error {
             cairo::IoError::Cairo(_) => Error::Io(io::Error::from(io::ErrorKind::Other))
         }
     }
-}
+} */
 
 impl Into<io::Error> for Error {
     fn into(self) -> io::Error {

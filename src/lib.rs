@@ -205,7 +205,7 @@ pub enum Error {
 impl SourceImage {
     /// Attempts to create a `SourceImage` from a given path.
     /// 
-    /// The `SourceImage::from<DynamicImage>` and `SourceImage::from<SvgImage>`
+    /// The `SourceImage::from::<DynamicImage>` and `SourceImage::from::<SvgImage>`
     /// methods should always be preferred.
     /// 
     /// # Example
@@ -213,13 +213,12 @@ impl SourceImage {
     /// let img = SourceImage::from_path("source.png")?;
     /// ```
     pub fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> {
-        match image::open(&path) {
-            Ok(bit) => Some(SourceImage::Raster(bit)),
-            Err(_)  => match Tree::from_file(&path, &usvg::Options::default()) {
-                Ok(svg) => Some(SourceImage::Svg(svg)),
-                Err(_)  => None
-            }
+        if let Ok(ras) = image::open(&path) {
+            return Some(SourceImage::from(ras));
         }
+
+        Tree::from_file(&path, &usvg::Options::default())
+            .ok().map(|svg| SourceImage::from(svg))
     }
 
     /// Returns the width of the original image in pixels.
@@ -307,16 +306,6 @@ impl From<io::Error> for Error {
         Error::Io(err)
     }
 }
-
-/* impl From<cairo::IoError> for Error {
-    fn from(err: cairo::IoError) -> Self {
-        match err {
-            cairo::IoError::Io(err)  => Error::from(err),
-            // TODO This should be more detailed
-            cairo::IoError::Cairo(_) => Error::Io(io::Error::from(io::ErrorKind::Other))
-        }
-    }
-} */
 
 impl Into<io::Error> for Error {
     fn into(self) -> io::Error {

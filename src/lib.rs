@@ -52,8 +52,8 @@ pub extern crate image;
 pub extern crate resvg;
 
 use std::{result, error, convert::From, path::Path, io::{self, Write}, fmt::{self, Display}};
-use image::ImageError;
-pub use image::{DynamicImage, RgbaImage, GenericImage, GenericImageView};
+use image::{ImageError, GenericImageView};
+pub use image::DynamicImage;
 pub use resvg::{usvg::{self, Tree}, raqote};
 
 pub use crate::ico::Ico;

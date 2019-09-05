@@ -111,8 +111,8 @@ by the creators of such crate as follows:
 ## Image Formats
 
 **IconBaker** uses [`image`](https://crates.io/crates/image) for _raster graphics_ manipulations and 
-[`resvg`](https://crates.io/crates/resvg/0.6.1) for `svg` rasterization, which requires 
-[`cairo`](https://www.cairographics.org/).
+[`resvg`](https://crates.io/crates/resvg/0.6.1) with the [`raqote`](https://crates.io/crates/raqote) 
+backend for `svg` rasterization. Note that `raqote` requires [`cmake`](https://cmake.org/) to build.
 
 | Format | Supported?                                                             | 
 |--------|------------------------------------------------------------------------| 

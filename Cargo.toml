@@ -1,6 +1,6 @@
 [package]
 name = "icon_baker"
-version = "3.0.0"
+version = "3.0.1"
 authors = [
     "Thiago Brevidelli <thiago.brevidelli.garcia@protonmail.com>",
     "Nicolas Girard <girard.nicolas@gmail.com>"

@@ -20,9 +20,10 @@
 //! ## General Usage
 //! 
 //! ```rust
-//! use icon_baker::*;
+//! use icon_baker::{Ico, SourceImage, Icon};
+//! use icon_baker::Error as IconError;
 //!  
-//! fn example() -> icon_baker::Result<()> {
+//! fn example() -> Result<(), IconError> {
 //!     let icon = Ico::new();
 //! 
 //!     match SourceImage::from_path("image.svg") {
@@ -60,8 +61,8 @@ pub use crate::ico::Ico;
 pub use crate::icns::Icns;
 pub use crate::png_sequence::PngSequence;
 
-pub type Size = u32;
-pub type Result<T> = result::Result<T, Error>;
+type Size = u32;
+type Result<T> = result::Result<T, Error>;
 
 #[cfg(test)]
 mod test;
@@ -99,9 +100,10 @@ pub trait Icon {
     /// 
     /// # Example
     /// ```rust
-    /// use icon_baker::*;
+    /// use icon_baker::{Ico, SourceImage, Icon};
+    /// use icon_baker::Error as IconError;
     ///  
-    /// fn main() -> icon_baker::Result<()> {
+    /// fn example() -> Result<(), IconError> {
     ///     let icon = Ico::new();
     /// 
     ///     match SourceImage::from_path("image.svg") {
@@ -133,9 +135,10 @@ pub trait Icon {
     /// 
     /// # Example
     /// ```rust
-    /// use icon_baker::*;
+    /// use icon_baker::{Icns, SourceImage, Icon};
+    /// use icon_baker::Error as IconError;
     ///  
-    /// fn main() -> icon_baker::Result<()> {
+    /// fn example() -> Result<(), IconError> {
     ///     let icon = Icns::new();
     /// 
     ///     match SourceImage::from_path("image.svg") {
@@ -168,7 +171,7 @@ pub trait Icon {
     /// use icon_baker::*;
     /// use std::{io, fs::File};
     ///  
-    /// fn main() -> io::Result<()> {
+    /// fn example() -> io::Result<()> {
     ///     let icon = PngSequence::new();
     /// 
     ///     /* Process the icon */

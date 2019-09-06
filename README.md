@@ -28,9 +28,10 @@ filters are provided in the
 ## General Usage
 
 ```rust
-use icon_baker::*;
+use icon_baker::{Ico, SourceImage, Icon};
+use icon_baker::Error as IconError;
  
-fn example() -> icon_baker::Result<()> {
+fn example() -> Result<(), IconError> {
     let icon = Ico::new();
 
     match SourceImage::from_path("image.svg") {

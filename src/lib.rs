@@ -53,7 +53,7 @@ pub extern crate image;
 pub extern crate resvg;
 
 pub use resvg::{usvg, raqote};
-use std::{result, error, convert::From, path::Path, io::{self, Write}, fmt::{self, Display}};
+use std::{result, error, convert::From, path::Path, io::{self, Write}, fs::File, fmt::{self, Display}};
 use image::{DynamicImage, ImageError, GenericImageView};
 use crate::usvg::Tree;
 
@@ -181,6 +181,26 @@ pub trait Icon {
     /// }
     /// ```
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()>;
+
+    /// Writes the contents of the icon to a file on disk.
+    /// 
+    /// # Example
+    /// ```rust
+    /// use icon_baker::*;
+    /// use std::{io, fs::File};
+    ///  
+    /// fn example() -> io::Result<()> {
+    ///     let icon = Ico::new();
+    /// 
+    ///     /* Process the icon */
+    /// 
+    ///     icon.save("./output/out.ico")
+    /// }
+    /// ```
+    fn save<P: AsRef<Path>>(&mut self, path: &mut P) -> io::Result<()> {
+        let mut file = File::create(path.as_ref())?;
+        self.write(&mut file)
+    }
 }
 
 /// A representation of a source image.
@@ -230,32 +250,23 @@ impl SourceImage {
 
     /// Returns the width of the original image in pixels.
     pub fn width(&self) -> f64 {
-        let (w, _) = self.dimensions();
-
-        w
+        match self {
+            SourceImage::Raster(ras) => ras.width() as f64,
+            SourceImage::Svg(svg)    => svg.svg_node().view_box.rect.width()
+        }
     }
 
     /// Returns the height of the original image in pixels.
     pub fn height(&self) -> f64 {
-        let (_, h) = self.dimensions();
-
-        h
+        match self {
+            SourceImage::Raster(ras) => ras.height() as f64,
+            SourceImage::Svg(svg)    => svg.svg_node().view_box.rect.height()
+        }
     }
 
     /// Returns the dimensions of the original image in pixels.
     pub fn dimensions(&self) -> (f64, f64) {
-        match self {
-            SourceImage::Raster(bit) => {
-                let (w, h) = bit.dimensions();
-
-                (w as f64, h as f64)
-            },
-            SourceImage::Svg(svg) => {
-                let rect = svg.svg_node().view_box.rect;
-
-                (rect.width() as f64, rect.height() as f64)
-            }
-        }
+        (self.width(), self.height())
     }
 }
 

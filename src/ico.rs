@@ -1,11 +1,11 @@
 extern crate ico;
 
-use crate::{Icon, SourceImage, Size, Result, Error};
+use crate::{Icon, SourceImage, Entry, Result, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
 use image::{DynamicImage, ImageError, GenericImageView};
 
-const MIN_ICO_SIZE: Size = 1;
-const MAX_ICO_SIZE: Size = 256;
+const MIN_ICO_SIZE: u32 = 1;
+const MAX_ICO_SIZE: u32 = 256;
 
 /// A collection of entries stored in a single `.ico` file.
 #[derive(Clone)]
@@ -13,23 +13,23 @@ pub struct Ico {
     icon_dir: ico::IconDir
 }
 
-impl Icon for Ico {
+impl Icon<Entry> for Ico {
     fn new() -> Self {
         Ico { icon_dir: ico::IconDir::new(ico::ResourceType::Icon) }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<DynamicImage>>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
-        size: Size
+        entry: Entry
     ) -> Result<()> {
-        if size < MIN_ICO_SIZE || size > MAX_ICO_SIZE {
-            return Err(Error::InvalidSize(size));
+        if entry.0 < MIN_ICO_SIZE || entry.0 > MAX_ICO_SIZE {
+            return Err(Error::InvalidSize(entry.0));
         }
 
-        let icon = filter(source, size)?;
-        if icon.width() != size || icon.height() != size {
+        let icon = filter(source, entry.0)?;
+        if icon.width() != entry.0 || icon.height() != entry.0 {
             return Err(Error::Image(ImageError::DimensionError));
         }
 

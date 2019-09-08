@@ -1,36 +1,36 @@
 extern crate tar;
 extern crate image;
 
-use crate::{Icon, SourceImage, Size, Result, Error};
+use crate::{Icon, SourceImage, Entry, Result, Error};
 use std::{io::{self, Write}, collections::{HashMap, BTreeSet}};
 use image::{png::PNGEncoder, DynamicImage, GenericImageView, ImageError, ColorType};
 
-const MIN_PNG_SIZE: Size = 1;
+const MIN_PNG_SIZE: u32 = 1;
 const STD_CAPACITY: usize = 7;
 
 /// A collection of images stored in a single `.tar` file.
 #[derive(Clone, Debug)]
 pub struct PngSequence {
-    images: HashMap<Size, BTreeSet<Vec<u8>>>
+    images: HashMap<u32, BTreeSet<Vec<u8>>>
 }
 
-impl Icon for PngSequence {
+impl Icon<Entry> for PngSequence {
     fn new() -> Self {
         PngSequence { images: HashMap::with_capacity(STD_CAPACITY) }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<DynamicImage>>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
-        size: Size
+        entry: Entry
     ) -> Result<()> {
-        if size < MIN_PNG_SIZE {
-            return Err(Error::InvalidSize(size));
+        if entry.0 < MIN_PNG_SIZE {
+            return Err(Error::InvalidSize(entry.0));
         }
 
-        let icon = filter(source, size)?;
-        if icon.width() != size || icon.height() != size {
+        let icon = filter(source, entry.0)?;
+        if icon.width() != entry.0 || icon.height() != entry.0 {
             return Err(Error::Image(ImageError::DimensionError));
         }
 
@@ -39,9 +39,9 @@ impl Icon for PngSequence {
         // Encode the pixel data as PNG and store it in a Vec<u8>
         let mut image = Vec::with_capacity(data.len());
         let encoder = PNGEncoder::new(&mut image);
-        encoder.encode(&data, size, size, ColorType::RGBA(8))?;
+        encoder.encode(&data, entry.0, entry.0, ColorType::RGBA(8))?;
 
-        self.images.entry(size).or_default().insert(image);
+        self.images.entry(entry.0).or_default().insert(image);
         Ok(())
     }
 

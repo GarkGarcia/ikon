@@ -53,15 +53,15 @@ fn test_ico() {
     let img = SourceImage::from_path("tests/hydra.png")
         .expect("File not found");
 
-    if let Err(err) = icon.add_entries(resample::nearest, &img, vec![32, 64]) {
+    if let Err(err) = icon.add_entries(resample::nearest, &img, vec![Entry(32), Entry(64)]) {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.add_entry(resample::nearest, &img, 128) {
+    if let Err(err) = icon.add_entry(resample::nearest, &img, Entry(128)) {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.add_entry(resample::nearest, &img, 32) {
+    if let Err(err) = icon.add_entry(resample::nearest, &img, Entry(32)) {
         panic!("{:?}", err);
     }
 
@@ -79,15 +79,15 @@ fn test_icns() {
     let img = SourceImage::from_path("tests/hydra.png")
         .expect("File not found");
 
-    if let Err(err) = icon.add_entries(resample::nearest, &img, vec![32, 64]) {
+    if let Err(err) = icon.add_entries(resample::nearest, &img, vec![Entry(32), Entry(64)]) {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.add_entry(resample::nearest, &img, 128) {
+    if let Err(err) = icon.add_entry(resample::nearest, &img, Entry(128)) {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.add_entry(resample::nearest, &img, 32) {
+    if let Err(err) = icon.add_entry(resample::nearest, &img, Entry(32)) {
         panic!("{:?}", err);
     }
 
@@ -105,7 +105,7 @@ fn test_png() {
     let img = SourceImage::from_path("tests/hydra.png")
         .expect("File not found");
 
-    if let Err(err) = icon.add_entries(resample::linear, &img, vec![32, 64]) {
+    if let Err(err) = icon.add_entries(resample::linear, &img, vec![Entry(32), Entry(64)]) {
         panic!("{:?}", err);
     }
 

@@ -1,12 +1,12 @@
 //! A collection of commonly used resampling filters.
 
-use crate::{SourceImage, Size, Result, Error};
+use crate::{SourceImage, Result, Error};
 use std::io;
 use image::{imageops, DynamicImage, ImageBuffer, GenericImageView, FilterType, Bgra, ImageError};
 use resvg::{usvg::{self, Tree}, raqote::DrawTarget , FitTo};
 
 /// [Linear resampling filter](https://en.wikipedia.org/wiki/Linear_interpolation).
-pub fn linear(source: &SourceImage, size: Size) -> Result<DynamicImage> {
+pub fn linear(source: &SourceImage, size: u32) -> Result<DynamicImage> {
     match source {
         SourceImage::Raster(bit) => Ok(scale(bit, size, FilterType::Triangle)),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
@@ -14,7 +14,7 @@ pub fn linear(source: &SourceImage, size: Size) -> Result<DynamicImage> {
 }
 
 /// [Lanczos resampling filter](https://en.wikipedia.org/wiki/Lanczos_resampling).
-pub fn cubic(source: &SourceImage, size: Size) -> Result<DynamicImage> {
+pub fn cubic(source: &SourceImage, size: u32) -> Result<DynamicImage> {
     match source {
         SourceImage::Raster(bit) => Ok(scale(bit, size, FilterType::Lanczos3)),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
@@ -22,7 +22,7 @@ pub fn cubic(source: &SourceImage, size: Size) -> Result<DynamicImage> {
 }
 
 /// [Nearest-Neighbor resampling filter](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation).
-pub fn nearest(source: &SourceImage, size: Size) -> Result<DynamicImage> {
+pub fn nearest(source: &SourceImage, size: u32) -> Result<DynamicImage> {
     match source {
         SourceImage::Raster(bit) => Ok(nearest::resample(bit, size)),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
@@ -31,10 +31,9 @@ pub fn nearest(source: &SourceImage, size: Size) -> Result<DynamicImage> {
 
 mod nearest {
     use super::{overfit, scale};
-    use crate::Size;
     use image::{imageops, DynamicImage, GenericImageView, FilterType};
 
-    pub fn resample(source: &DynamicImage, size: Size) -> DynamicImage {
+    pub fn resample(source: &DynamicImage, size: u32) -> DynamicImage {
         let scaled = if source.width() < size as u32 && source.height() < size as u32 {
             scale_integer(source, size)
         } else {
@@ -44,7 +43,7 @@ mod nearest {
         overfit(&scaled, size)
     }
 
-    fn scale_integer(source: &DynamicImage, size: Size) -> DynamicImage {
+    fn scale_integer(source: &DynamicImage, size: u32) -> DynamicImage {
         let (w ,  h) = source.dimensions();
 
         let scale = if w > h { size / w } else { size / h };
@@ -54,7 +53,7 @@ mod nearest {
     }
 }
 
-fn scale(source: &DynamicImage, size: Size, filter: FilterType) -> DynamicImage {
+fn scale(source: &DynamicImage, size: u32, filter: FilterType) -> DynamicImage {
     let (w ,  h) = source.dimensions();
 
     let (nw, nh) = if w > h { (size, (size * h) / w) } else { ((size * w) / h, size) };
@@ -62,7 +61,7 @@ fn scale(source: &DynamicImage, size: Size, filter: FilterType) -> DynamicImage 
     DynamicImage::ImageRgba8(imageops::resize(source, nw, nh, filter))
 }
 
-fn overfit(source: &DynamicImage, size: Size) -> DynamicImage {
+fn overfit(source: &DynamicImage, size: u32) -> DynamicImage {
     let mut output = DynamicImage::new_rgba8(size, size);
 
     let dx = (output.width()  - source.width() ) / 2;
@@ -72,7 +71,7 @@ fn overfit(source: &DynamicImage, size: Size) -> DynamicImage {
     output
 }
 
-fn svg_linear(source: &Tree, size: Size) -> Result<DynamicImage> {
+fn svg_linear(source: &Tree, size: u32) -> Result<DynamicImage> {
     let rect = source.svg_node().view_box.rect;
     let (w, h) = (rect.width(), rect.height());
     let fit_to = if w > h { FitTo::Width(size) } else { FitTo::Height(size) };
@@ -89,7 +88,7 @@ fn svg_linear(source: &Tree, size: Size) -> Result<DynamicImage> {
     }
 }
 
-fn draw_target_to_rgba(mut surface: DrawTarget, size: Size) -> Result<DynamicImage> {
+fn draw_target_to_rgba(mut surface: DrawTarget, size: u32) -> Result<DynamicImage> {
     let (w, h) = (surface.width() as u32, surface.height() as u32);
     let data = surface.get_data_u8_mut().to_vec();
 

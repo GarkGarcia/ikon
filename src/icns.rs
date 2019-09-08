@@ -1,6 +1,6 @@
 extern crate icns;
 
-use crate::{Icon, SourceImage, Size, Result, Error};
+use crate::{Icon, Entry, SourceImage, Result, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
 use image::{DynamicImage, ImageError};
 
@@ -9,29 +9,29 @@ pub struct Icns {
     icon_family: icns::IconFamily
 }
 
-impl Icon for Icns {
+impl Icon<Entry> for Icns {
     fn new() -> Self {
         Icns { icon_family: icns::IconFamily::new() }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<DynamicImage>>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
-        size: Size
+        entry: Entry
     ) -> Result<()> {
-        let icon = filter(source, size)?;
+        let icon = filter(source, entry.0)?;
         let data = icon.to_rgba().into_vec();
 
         // The Image::from_data method only fails when the specified
         // image dimensions do not fit the buffer length
-        let image = icns::Image::from_data(icns::PixelFormat::RGBA, size, size, data)
+        let image = icns::Image::from_data(icns::PixelFormat::RGBA, entry.0, entry.0, data)
             .map_err(|_| Error::Image(ImageError::DimensionError))?;
 
         // The IconFamily::add_icon method only fails when the
         // specified image dimensions are not supported by ICNS
         self.icon_family.add_icon(&image)
-            .map_err(|_| Error::InvalidSize(size))
+            .map_err(|_| Error::InvalidSize(entry.0))
     }
 
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {

@@ -53,7 +53,7 @@ pub extern crate image;
 pub extern crate resvg;
 
 pub use resvg::{usvg, raqote};
-use std::{result, error, convert::From, path::Path, io::{self, Write}, fs::File, fmt::{self, Display}};
+use std::{result, error, convert::From, path::Path, io::{self, Write}, fs::File, fmt::{self, Display, Debug}};
 use image::{DynamicImage, ImageError, GenericImageView};
 use crate::usvg::Tree;
 
@@ -61,7 +61,6 @@ pub use crate::ico::Ico;
 pub use crate::icns::Icns;
 pub use crate::png_sequence::PngSequence;
 
-type Size = u32;
 type Result<T> = result::Result<T, Error>;
 
 #[cfg(test)]
@@ -74,7 +73,7 @@ pub mod resample;
 const INVALID_SIZE_ERROR: &str = "invalid size supplied to the add_entry method";
 
 /// A generic representation of an icon encoder.
-pub trait Icon {
+pub trait Icon<E: Size + Debug> {
     /// Creates a new icon.
     /// 
     /// # Example
@@ -112,11 +111,11 @@ pub trait Icon {
     ///     }
     /// }
     /// ```
-    fn add_entry<F: FnMut(&SourceImage, Size) -> Result<DynamicImage>>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage>>(
         &mut self,
         filter: F,
         source: &SourceImage,
-        size: Size
+        entry: E
     ) -> Result<()>;
 
     /// Adds a series of entries to the icon.
@@ -151,14 +150,14 @@ pub trait Icon {
     ///     }
     /// }
     /// ```
-    fn add_entries<F: FnMut(&SourceImage, Size) -> Result<DynamicImage>,I: IntoIterator<Item = Size>>(
+    fn add_entries<F: FnMut(&SourceImage, u32) -> Result<DynamicImage>,I: IntoIterator<Item = E>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
-        sizes: I
+        entries: I
     ) -> Result<()> {
-        for size in sizes {
-            self.add_entry(|src, size| filter(src, size), source, size)?;
+        for entry in entries {
+            self.add_entry(|src, entry| filter(src, entry.size()), source, entry)?;
         }
 
         Ok(())
@@ -203,6 +202,14 @@ pub trait Icon {
     }
 }
 
+pub trait Size {
+    fn size(&self) -> u32;
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Entry(u32);
+
+#[derive(Clone)]
 /// A representation of a source image.
 pub enum SourceImage {
     /// A generic raster image.
@@ -219,9 +226,21 @@ pub enum Error {
     /// Error from the `image` crate.
     Image(ImageError),
     /// An unsupported size was suplied to an `Icon` operation.
-    InvalidSize(Size),
+    InvalidSize(u32),
     /// Generic I/O error.
     Io(io::Error)
+}
+
+impl<T: Copy + Into<u32>> Size for T {
+    fn size(&self) -> u32 {
+        (*self).into()
+    }
+}
+
+impl Size for Entry {
+    fn size(&self) -> u32 {
+        self.0
+    }
 }
 
 impl SourceImage {

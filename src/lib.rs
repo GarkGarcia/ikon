@@ -73,7 +73,7 @@ pub mod resample;
 const INVALID_SIZE_ERROR: &str = "invalid size supplied to the add_entry method";
 
 /// A generic representation of an icon encoder.
-pub trait Icon<E: Size + Debug> {
+pub trait Icon<E: AsRef<u32> + Debug> {
     /// Creates a new icon.
     /// 
     /// # Example
@@ -157,7 +157,7 @@ pub trait Icon<E: Size + Debug> {
         entries: I
     ) -> Result<()> {
         for entry in entries {
-            self.add_entry(|src, entry| filter(src, entry.size()), source, entry)?;
+            self.add_entry(|src, size| filter(src, size), source, entry)?;
         }
 
         Ok(())
@@ -202,10 +202,6 @@ pub trait Icon<E: Size + Debug> {
     }
 }
 
-pub trait Size {
-    fn size(&self) -> u32;
-}
-
 #[derive(Copy, Clone, Debug)]
 pub struct Entry(u32);
 
@@ -231,15 +227,9 @@ pub enum Error {
     Io(io::Error)
 }
 
-impl<T: Copy + Into<u32>> Size for T {
-    fn size(&self) -> u32 {
-        (*self).into()
-    }
-}
-
-impl Size for Entry {
-    fn size(&self) -> u32 {
-        self.0
+impl AsRef<u32> for Entry {
+    fn as_ref(&self) -> &u32 {
+        &self.0
     }
 }
 

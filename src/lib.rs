@@ -68,6 +68,8 @@ mod icns;
 mod png_sequence;
 pub mod resample;
 
+const STD_CAPACITY: usize = 7;
+
 /// A generic representation of an icon encoder.
 pub trait Icon<E: AsRef<u32> + Debug + Eq> {
     /// Creates a new icon.

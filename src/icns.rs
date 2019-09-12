@@ -1,17 +1,21 @@
 extern crate icns;
 
-use crate::{Icon, Entry, SourceImage, Error};
+use crate::{Icon, Entry, SourceImage, Error, STD_CAPACITY};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
 use image::{DynamicImage, ImageError};
 
 /// A collection of entries stored in a single `.icns` file.
 pub struct Icns {
-    icon_family: icns::IconFamily
+    icon_family: icns::IconFamily,
+    entries: Vec<u32>
 }
 
 impl Icon<Entry> for Icns {
     fn new() -> Self {
-        Icns { icon_family: icns::IconFamily::new() }
+        Icns {
+            icon_family: icns::IconFamily::new(),
+            entries: Vec::with_capacity(STD_CAPACITY)
+        }
     }
 
     fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage, Error<Entry>>>(
@@ -22,6 +26,10 @@ impl Icon<Entry> for Icns {
     ) -> Result<(), Error<Entry>> {
         let icon = filter(source, entry.0)?;
         let data = icon.to_rgba().into_vec();
+
+        if self.entries.contains(&entry.0) {
+            return Err(Error::AlreadyIncluded(entry));
+        }
 
         // The Image::from_data method only fails when the specified
         // image dimensions do not fit the buffer length
@@ -51,7 +59,10 @@ impl Clone for Icns {
             icon_family.elements.push(clone);
         }
 
-        Icns { icon_family }
+        Icns {
+            icon_family,
+            entries: self.entries.clone()
+        }
     }
 }
 

@@ -100,6 +100,7 @@ fn svg_linear<E: AsRef<u32> + Debug + Eq>(
     }
 }
 
+#[inline]
 fn draw_target_to_rgba<E: AsRef<u32> + Debug + Eq>(
     mut surface: DrawTarget,
     size: u32

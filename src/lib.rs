@@ -54,7 +54,7 @@ pub extern crate resvg;
 
 pub use resvg::{usvg, raqote};
 use std::{error, convert::From, path::{Path, PathBuf}, io::{self, Write}, fs::File, fmt::{self, Display, Debug}};
-use image::{DynamicImage, ImageError, GenericImageView};
+use image::{DynamicImage, GenericImageView};
 use crate::usvg::Tree;
 
 pub use crate::ico::Ico;
@@ -69,6 +69,7 @@ mod png_sequence;
 pub mod resample;
 
 const STD_CAPACITY: usize = 7;
+const INVALID_DIM_ERR: &str = "a resampling filter return images of invalid resolution";
 
 /// A generic representation of an icon encoder.
 pub trait Icon<E: AsRef<u32> + Debug + Eq> {
@@ -218,13 +219,14 @@ pub enum SourceImage {
 #[derive(Debug)]
 /// The error type for operations of the `Icon` trait.
 pub enum Error<E: AsRef<u32> + Debug + Eq> {
-    /// Error from the `usvg` crate.
-    Usvg(usvg::Error),
-    /// Error from the `image` crate.
-    Image(ImageError),
+    /// The `Icon` instance already includes this entry.
+    AlreadyIncluded(E),
+    /// The return value of a resampling filter has invalid
+    /// dimensions: the dimensions do not match the ones
+    /// specified in the application of the filter.
+    InvalidDimensions(u32, (u32, u32)),
     /// An unsupported size was suplied to an `Icon` operation.
     InvalidSize(u32),
-    AlreadyIncluded(E),
     /// Generic I/O error.
     Io(io::Error)
 }
@@ -319,37 +321,21 @@ impl From<DynamicImage> for SourceImage {
 impl<E: AsRef<u32> + Debug + Eq> Display for Error<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::Usvg(err)          => write!(f, "{}", err),
-            Error::Image(err)         => write!(f, "{}", err),
-            Error::Io(err)            => write!(f, "{}", err),
+            Error::AlreadyIncluded(_) => write!(f, "the icon already includes this entry"),
             Error::InvalidSize(s)     => write!(f, "{0}x{0} icons are not supported", s),
-            Error::AlreadyIncluded(_) => write!(f, "the icon already includes this entry")
+            Error::Io(err)            => write!(f, "{}", err),
+            Error::InvalidDimensions(s, (w, h))
+                => write!(f, "{0}: expected {1}x{1} and got {2}x{3}", INVALID_DIM_ERR, s, w, h)
         }
     }
 }
 
 impl<E: AsRef<u32> + Debug + Eq> error::Error for Error<E> {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self {
-            Error::Usvg(err)   => err.source(),
-            Error::Image(err)  => err.source(),
-            Error::Io(ref err) => Some(err),
-            Error::InvalidSize(_) | Error::AlreadyIncluded(_) => None
-        }
-    }
-}
-
-impl<E: AsRef<u32> + Debug + Eq> From<usvg::Error> for Error<E> {
-    fn from(err: usvg::Error) -> Self {
-        Error::Usvg(err)
-    }
-}
-
-impl<E: AsRef<u32> + Debug + Eq> From<ImageError> for Error<E> {
-    fn from(err: ImageError) -> Self {
-        match err {
-            ImageError::IoError(err) => Error::Io(err),
-            err => Error::Image(err)
+        if let Error::Io(ref err) = self {
+            Some(err)
+        } else {
+            None
         }
     }
 }
@@ -363,31 +349,9 @@ impl<E: AsRef<u32> + Debug + Eq> From<io::Error> for Error<E> {
 impl<E: AsRef<u32> + Debug + Eq> Into<io::Error> for Error<E> {
     fn into(self) -> io::Error {
         match self {
-            Error::Image(ImageError::IoError(err))
-            | Error::Io(err) => err,
-
-            Error::InvalidSize(_)
-            | Error::AlreadyIncluded(_)
-            | Error::Usvg(usvg::Error::NotAnUtf8Str)
-            | Error::Usvg(usvg::Error::InvalidSize)
-            | Error::Usvg(usvg::Error::InvalidFileSuffix)
-            => io::Error::from(io::ErrorKind::InvalidInput),
-
-            Error::Image(ImageError::DimensionError)
-            | Error::Image(ImageError::FormatError(_))
-            | Error::Image(ImageError::UnsupportedColor(_))
-            | Error::Image(ImageError::UnsupportedError(_))
-            | Error::Usvg(usvg::Error::MalformedGZip)
-            | Error::Usvg(usvg::Error::ParsingFailed(_))
-            => io::Error::from(io::ErrorKind::InvalidData),
-
-            Error::Image(ImageError::ImageEnd)
-            | Error::Image(ImageError::NotEnoughData)
-            => io::Error::from(io::ErrorKind::UnexpectedEof),
-
-            Error::Image(ImageError::InsufficientMemory)
-            | Error::Usvg(usvg::Error::FileOpenFailed)
-            => io::Error::from(io::ErrorKind::Other)
+            Error::Io(err)                 => err,
+            Error::InvalidDimensions(_, _) => io::Error::from(io::ErrorKind::InvalidData),
+            _                              => io::Error::from(io::ErrorKind::InvalidInput)
         }
     }
 }

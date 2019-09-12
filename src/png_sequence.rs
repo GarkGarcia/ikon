@@ -3,7 +3,7 @@ extern crate image;
 
 use crate::{Icon, SourceImage, NamedEntry, Error};
 use std::{io::{self, Write}, collections::HashMap};
-use image::{png::PNGEncoder, DynamicImage, GenericImageView, ImageError, ColorType};
+use image::{png::PNGEncoder, DynamicImage, GenericImageView, ColorType};
 
 const MIN_PNG_SIZE: u32 = 1;
 const STD_CAPACITY: usize = 7;
@@ -34,9 +34,11 @@ impl Icon<NamedEntry> for PngSequence {
         }
 
         let icon = filter(source, entry.0);
-        if icon.width() != entry.0 || icon.height() != entry.0 {
-            return Err(Error::Image(ImageError::DimensionError));
+        let (icon_w, icon_h) = icon.dimensions();
+        if icon_w != entry.0 || icon_h != entry.0 {
+            return Err(Error::InvalidDimensions(entry.0, (icon_w, icon_h)));
         }
+
 
         let data = icon.to_rgba().into_raw();
     

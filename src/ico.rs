@@ -2,7 +2,7 @@ extern crate ico;
 
 use crate::{Icon, SourceImage, Entry, Error, STD_CAPACITY};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
-use image::{DynamicImage, ImageError, GenericImageView};
+use image::{DynamicImage, GenericImageView};
 
 const MIN_ICO_SIZE: u32 = 1;
 const MAX_ICO_SIZE: u32 = 256;
@@ -37,8 +37,9 @@ impl Icon<Entry> for Ico {
         }
 
         let icon = filter(source, entry.0);
-        if icon.width() != entry.0 || icon.height() != entry.0 {
-            return Err(Error::Image(ImageError::DimensionError));
+        let (icon_w, icon_h) = icon.dimensions();
+        if icon_w != entry.0 || icon_h != entry.0 {
+            return Err(Error::InvalidDimensions(entry.0, (icon_w, icon_h)));
         }
 
         let size = icon.width();

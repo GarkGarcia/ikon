@@ -1,39 +1,38 @@
 //! A collection of commonly used resampling filters.
 
-use crate::{SourceImage, Error};
-use std::{io, fmt::Debug};
-use image::{imageops, DynamicImage, ImageBuffer, GenericImageView, FilterType, Bgra, ImageError};
+use crate::SourceImage;
+use image::{imageops, DynamicImage, ImageBuffer, GenericImageView, FilterType, Bgra};
 use resvg::{usvg::{self, Tree}, raqote::DrawTarget , FitTo};
 
 /// [Linear resampling filter](https://en.wikipedia.org/wiki/Linear_interpolation).
-pub fn linear<E: AsRef<u32> + Debug + Eq>(
+pub fn linear(
     source: &SourceImage,
     size: u32
-) -> Result<DynamicImage, Error<E>> {
+) -> DynamicImage {
     match source {
-        SourceImage::Raster(bit) => Ok(scale(bit, size, FilterType::Triangle)),
+        SourceImage::Raster(bit) => scale(bit, size, FilterType::Triangle),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
     }
 }
 
 /// [Lanczos resampling filter](https://en.wikipedia.org/wiki/Lanczos_resampling).
-pub fn cubic<E: AsRef<u32> + Debug + Eq>(
+pub fn cubic(
     source: &SourceImage,
     size: u32
-) -> Result<DynamicImage, Error<E>> {
+) -> DynamicImage {
     match source {
-        SourceImage::Raster(bit) => Ok(scale(bit, size, FilterType::Lanczos3)),
+        SourceImage::Raster(bit) => scale(bit, size, FilterType::Lanczos3),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
     }
 }
 
 /// [Nearest-Neighbor resampling filter](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation).
-pub fn nearest<E: AsRef<u32> + Debug + Eq>(
+pub fn nearest(
     source: &SourceImage,
     size: u32
-) -> Result<DynamicImage, Error<E>> {
+) -> DynamicImage {
     match source {
-        SourceImage::Raster(bit) => Ok(nearest::resample(bit, size)),
+        SourceImage::Raster(bit) => nearest::resample(bit, size),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
     }
 }
@@ -80,10 +79,10 @@ fn overfit(source: &DynamicImage, size: u32) -> DynamicImage {
     output
 }
 
-fn svg_linear<E: AsRef<u32> + Debug + Eq>(
+fn svg_linear(
     source: &Tree,
     size: u32
-) -> Result<DynamicImage, Error<E>> {
+) -> DynamicImage {
     let rect = source.svg_node().view_box.rect;
     let (w, h) = (rect.width(), rect.height());
     let fit_to = if w > h { FitTo::Width(size) } else { FitTo::Height(size) };
@@ -94,22 +93,24 @@ fn svg_linear<E: AsRef<u32> + Debug + Eq>(
         background: None
     };
 
+    // This function only returns None when the image width or height is zero.
+    // In this context it's safe to assume it will return Some(_)
     match resvg::backend_raqote::render_to_image(source, &opts) {
         Some(surface) => draw_target_to_rgba(surface, size),
-        None => Err(Error::Io(io::Error::from(io::ErrorKind::AddrNotAvailable)))
+        None => panic!("could not render svg tree to image buffer")
     }
 }
 
 #[inline]
-fn draw_target_to_rgba<E: AsRef<u32> + Debug + Eq>(
+fn draw_target_to_rgba(
     mut surface: DrawTarget,
     size: u32
-) -> Result<DynamicImage, Error<E>> {
+) -> DynamicImage {
     let (w, h) = (surface.width() as u32, surface.height() as u32);
     let data = surface.get_data_u8_mut().to_vec();
 
     match ImageBuffer::<Bgra<u8>, Vec<u8>>::from_vec(w, h, data) {
-        Some(buf) => Ok(overfit(&DynamicImage::ImageBgra8(buf), size)),
-        None => Err(Error::Image(ImageError::NotEnoughData))
+        Some(buf) => overfit(&DynamicImage::ImageBgra8(buf), size),
+        None      => panic!("buffer in not big enought")
     }
 }

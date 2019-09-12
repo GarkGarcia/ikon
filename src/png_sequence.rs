@@ -19,7 +19,7 @@ impl Icon<NamedEntry> for PngSequence {
         PngSequence { images: HashMap::with_capacity(STD_CAPACITY) }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage, Error<NamedEntry>>>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> DynamicImage>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
@@ -33,7 +33,7 @@ impl Icon<NamedEntry> for PngSequence {
             return Err(Error::AlreadyIncluded(entry));
         }
 
-        let icon = filter(source, entry.0)?;
+        let icon = filter(source, entry.0);
         if icon.width() != entry.0 || icon.height() != entry.0 {
             return Err(Error::Image(ImageError::DimensionError));
         }

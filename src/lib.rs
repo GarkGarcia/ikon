@@ -109,7 +109,7 @@ pub trait Icon<E: AsRef<u32> + Debug + Eq> {
     ///     }
     /// }
     /// ```
-    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage, Error<E>>>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> DynamicImage>(
         &mut self,
         filter: F,
         source: &SourceImage,
@@ -148,7 +148,7 @@ pub trait Icon<E: AsRef<u32> + Debug + Eq> {
     ///     }
     /// }
     /// ```
-    fn add_entries<F: FnMut(&SourceImage, u32) -> Result<DynamicImage, Error<E>>,I: IntoIterator<Item = E>>(
+    fn add_entries<F: FnMut(&SourceImage, u32) -> DynamicImage, I: IntoIterator<Item = E>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,

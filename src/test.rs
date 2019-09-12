@@ -4,17 +4,13 @@ use image::{png::PNGEncoder, ColorType};
 
 macro_rules! png {
     ($r: expr, $s: expr, $w:expr) => {
-        match $r(&$s, 32) {
-            Ok(scaled) => {
-                let (w, h) = scaled.dimensions();
-                let encoder = PNGEncoder::new($w);
-                let data = scaled.to_rgba().into_raw();
+        let scaled = $r(&$s, 32);
+        let (w, h) = scaled.dimensions();
+        let encoder = PNGEncoder::new($w);
+        let data = scaled.to_rgba().into_raw();
 
-                encoder.encode(&data, w, h, ColorType::RGBA(8))
-                    .expect("Could not encode or save the png output");
-            },
-            Err(err) => panic!("{:?}", err)
-        }
+        encoder.encode(&data, w, h, ColorType::RGBA(8))
+            .expect("Could not encode or save the png output");
     };
 }
 
@@ -38,10 +34,10 @@ fn test_resample() {
     let box_svg = SourceImage::from_path("tests/box.svg")
         .expect("File not found");
 
-    png!(resample::nearest::<Entry>, &hydra  , &mut file_near);
-    png!(resample::linear::<Entry> , &hydra  , &mut file_linear);
-    png!(resample::cubic::<Entry>  , &hydra  , &mut file_cubic);
-    png!(resample::nearest::<Entry>, &box_svg, &mut file_svg);
+    png!(resample::nearest, &hydra  , &mut file_near);
+    png!(resample::linear , &hydra  , &mut file_linear);
+    png!(resample::cubic  , &hydra  , &mut file_cubic);
+    png!(resample::nearest, &box_svg, &mut file_svg);
 }
 
 #[test]

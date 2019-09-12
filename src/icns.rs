@@ -18,13 +18,13 @@ impl Icon<Entry> for Icns {
         }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage, Error<Entry>>>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> DynamicImage>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
         entry: Entry
     ) -> Result<(), Error<Entry>> {
-        let icon = filter(source, entry.0)?;
+        let icon = filter(source, entry.0);
         let data = icon.to_rgba().into_vec();
 
         if self.entries.contains(&entry.0) {

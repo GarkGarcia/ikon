@@ -1,12 +1,15 @@
 //! A collection of commonly used resampling filters.
 
-use crate::{SourceImage, Result, Error};
-use std::io;
+use crate::{SourceImage, Error};
+use std::{io, fmt::Debug};
 use image::{imageops, DynamicImage, ImageBuffer, GenericImageView, FilterType, Bgra, ImageError};
 use resvg::{usvg::{self, Tree}, raqote::DrawTarget , FitTo};
 
 /// [Linear resampling filter](https://en.wikipedia.org/wiki/Linear_interpolation).
-pub fn linear(source: &SourceImage, size: u32) -> Result<DynamicImage> {
+pub fn linear<E: AsRef<u32> + Debug + Eq>(
+    source: &SourceImage,
+    size: u32
+) -> Result<DynamicImage, Error<E>> {
     match source {
         SourceImage::Raster(bit) => Ok(scale(bit, size, FilterType::Triangle)),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
@@ -14,7 +17,10 @@ pub fn linear(source: &SourceImage, size: u32) -> Result<DynamicImage> {
 }
 
 /// [Lanczos resampling filter](https://en.wikipedia.org/wiki/Lanczos_resampling).
-pub fn cubic(source: &SourceImage, size: u32) -> Result<DynamicImage> {
+pub fn cubic<E: AsRef<u32> + Debug + Eq>(
+    source: &SourceImage,
+    size: u32
+) -> Result<DynamicImage, Error<E>> {
     match source {
         SourceImage::Raster(bit) => Ok(scale(bit, size, FilterType::Lanczos3)),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
@@ -22,7 +28,10 @@ pub fn cubic(source: &SourceImage, size: u32) -> Result<DynamicImage> {
 }
 
 /// [Nearest-Neighbor resampling filter](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation).
-pub fn nearest(source: &SourceImage, size: u32) -> Result<DynamicImage> {
+pub fn nearest<E: AsRef<u32> + Debug + Eq>(
+    source: &SourceImage,
+    size: u32
+) -> Result<DynamicImage, Error<E>> {
     match source {
         SourceImage::Raster(bit) => Ok(nearest::resample(bit, size)),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
@@ -71,7 +80,10 @@ fn overfit(source: &DynamicImage, size: u32) -> DynamicImage {
     output
 }
 
-fn svg_linear(source: &Tree, size: u32) -> Result<DynamicImage> {
+fn svg_linear<E: AsRef<u32> + Debug + Eq>(
+    source: &Tree,
+    size: u32
+) -> Result<DynamicImage, Error<E>> {
     let rect = source.svg_node().view_box.rect;
     let (w, h) = (rect.width(), rect.height());
     let fit_to = if w > h { FitTo::Width(size) } else { FitTo::Height(size) };
@@ -88,7 +100,10 @@ fn svg_linear(source: &Tree, size: u32) -> Result<DynamicImage> {
     }
 }
 
-fn draw_target_to_rgba(mut surface: DrawTarget, size: u32) -> Result<DynamicImage> {
+fn draw_target_to_rgba<E: AsRef<u32> + Debug + Eq>(
+    mut surface: DrawTarget,
+    size: u32
+) -> Result<DynamicImage, Error<E>> {
     let (w, h) = (surface.width() as u32, surface.height() as u32);
     let data = surface.get_data_u8_mut().to_vec();
 

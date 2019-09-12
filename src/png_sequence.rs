@@ -1,8 +1,8 @@
 extern crate tar;
 extern crate image;
 
-use crate::{Icon, SourceImage, Entry, Result, Error};
-use std::{io::{self, Write}, collections::{HashMap, BTreeSet}};
+use crate::{Icon, SourceImage, NamedEntry, Error};
+use std::{io::{self, Write}, collections::HashMap};
 use image::{png::PNGEncoder, DynamicImage, GenericImageView, ImageError, ColorType};
 
 const MIN_PNG_SIZE: u32 = 1;
@@ -11,22 +11,26 @@ const STD_CAPACITY: usize = 7;
 /// A collection of images stored in a single `.tar` file.
 #[derive(Clone, Debug)]
 pub struct PngSequence {
-    images: HashMap<u32, BTreeSet<Vec<u8>>>
+    images: HashMap<NamedEntry, Vec<u8>>
 }
 
-impl Icon<Entry> for PngSequence {
+impl Icon<NamedEntry> for PngSequence {
     fn new() -> Self {
         PngSequence { images: HashMap::with_capacity(STD_CAPACITY) }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage>>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage, Error<NamedEntry>>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
-        entry: Entry
-    ) -> Result<()> {
+        entry: NamedEntry
+    ) -> Result<(), Error<NamedEntry>> {
         if entry.0 < MIN_PNG_SIZE {
             return Err(Error::InvalidSize(entry.0));
+        }
+
+        if self.images.contains_key(&entry) {
+            return Err(Error::AlreadyIncluded(entry));
         }
 
         let icon = filter(source, entry.0)?;
@@ -41,38 +45,25 @@ impl Icon<Entry> for PngSequence {
         let encoder = PNGEncoder::new(&mut image);
         encoder.encode(&data, entry.0, entry.0, ColorType::RGBA(8))?;
 
-        self.images.entry(entry.0).or_default().insert(image);
-        Ok(())
+        match self.images.insert(entry, image) {
+            Some(img) => panic!("Sanity test failed: {:?} is already included.", img),
+            None    => Ok(())
+        }
     }
 
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         let mut tar_builder = tar::Builder::new(w);
 
-        macro_rules! append {
-            ($image:expr, $path:expr) => {
-                let mut header = tar::Header::new_gnu();
-                header.set_size($image.len() as u64);
-                header.set_cksum();
-    
-                tar_builder
-                    .append_data::<String, &[u8]>(&mut header, $path, $image.as_ref())?;
-            };
-        }
+        for (entry, image) in &self.images {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(image.len() as u64);
+            header.set_cksum();
 
-         for (size, images) in &self.images {
-            if images.len() == 1 {
-                let path = format!("./{}/icon.png", size);
-                for image in images { append!(image, path); break; }
-            } else {
-                let mut c = 0;
-
-                for image in images {
-                    let path = format!("./{}/icon@{}.png", size, c);
-                    append!(image, path);
-
-                    c += 1;
-                }
-            }
+            tar_builder.append_data::<_, &[u8]>(
+                &mut header,
+                entry.1.clone(),
+                image.as_ref()
+            )?;
         }
 
         Ok(())

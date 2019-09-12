@@ -1,6 +1,6 @@
 extern crate icns;
 
-use crate::{Icon, Entry, SourceImage, Result, Error};
+use crate::{Icon, Entry, SourceImage, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
 use image::{DynamicImage, ImageError};
 
@@ -14,12 +14,12 @@ impl Icon<Entry> for Icns {
         Icns { icon_family: icns::IconFamily::new() }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage>>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage, Error<Entry>>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
         entry: Entry
-    ) -> Result<()> {
+    ) -> Result<(), Error<Entry>> {
         let icon = filter(source, entry.0)?;
         let data = icon.to_rgba().into_vec();
 

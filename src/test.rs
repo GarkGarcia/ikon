@@ -38,10 +38,10 @@ fn test_resample() {
     let box_svg = SourceImage::from_path("tests/box.svg")
         .expect("File not found");
 
-    png!(resample::nearest, &hydra  , &mut file_near);
-    png!(resample::linear , &hydra  , &mut file_linear);
-    png!(resample::cubic  , &hydra  , &mut file_cubic);
-    png!(resample::nearest, &box_svg, &mut file_svg);
+    png!(resample::nearest::<Entry>, &hydra  , &mut file_near);
+    png!(resample::linear::<Entry> , &hydra  , &mut file_linear);
+    png!(resample::cubic::<Entry>  , &hydra  , &mut file_cubic);
+    png!(resample::nearest::<Entry>, &box_svg, &mut file_svg);
 }
 
 #[test]
@@ -105,7 +105,12 @@ fn test_png() {
     let img = SourceImage::from_path("tests/hydra.png")
         .expect("File not found");
 
-    if let Err(err) = icon.add_entries(resample::linear, &img, vec![Entry(32), Entry(64)]) {
+    let entries = vec![
+        NamedEntry::from(32, &"32/icon.png"),
+        NamedEntry::from(64, &"64/icon.png")
+    ];
+
+    if let Err(err) = icon.add_entries(resample::linear, &img, entries) {
         panic!("{:?}", err);
     }
 

@@ -1,6 +1,6 @@
 extern crate ico;
 
-use crate::{Icon, SourceImage, Entry, Result, Error};
+use crate::{Icon, SourceImage, Entry, Error};
 use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
 use image::{DynamicImage, ImageError, GenericImageView};
 
@@ -18,12 +18,12 @@ impl Icon<Entry> for Ico {
         Ico { icon_dir: ico::IconDir::new(ico::ResourceType::Icon) }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage>>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage, Error<Entry>>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
         entry: Entry
-    ) -> Result<()> {
+    ) -> Result<(), Error<Entry>> {
         if entry.0 < MIN_ICO_SIZE || entry.0 > MAX_ICO_SIZE {
             return Err(Error::InvalidSize(entry.0));
         }

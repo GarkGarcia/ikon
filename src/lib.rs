@@ -53,15 +53,13 @@ pub extern crate image;
 pub extern crate resvg;
 
 pub use resvg::{usvg, raqote};
-use std::{result, error, convert::From, path::Path, io::{self, Write}, fs::File, fmt::{self, Display, Debug}};
+use std::{error, convert::From, path::{Path, PathBuf}, io::{self, Write}, fs::File, fmt::{self, Display, Debug}};
 use image::{DynamicImage, ImageError, GenericImageView};
 use crate::usvg::Tree;
 
 pub use crate::ico::Ico;
 pub use crate::icns::Icns;
 pub use crate::png_sequence::PngSequence;
-
-type Result<T> = result::Result<T, Error>;
 
 #[cfg(test)]
 mod test;
@@ -70,10 +68,8 @@ mod icns;
 mod png_sequence;
 pub mod resample;
 
-const INVALID_SIZE_ERROR: &str = "invalid size supplied to the add_entry method";
-
 /// A generic representation of an icon encoder.
-pub trait Icon<E: AsRef<u32> + Debug> {
+pub trait Icon<E: AsRef<u32> + Debug + Eq> {
     /// Creates a new icon.
     /// 
     /// # Example
@@ -111,12 +107,12 @@ pub trait Icon<E: AsRef<u32> + Debug> {
     ///     }
     /// }
     /// ```
-    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage>>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> Result<DynamicImage, Error<E>>>(
         &mut self,
         filter: F,
         source: &SourceImage,
         entry: E
-    ) -> Result<()>;
+    ) -> Result<(), Error<E>>;
 
     /// Adds a series of entries to the icon.
     /// # Arguments
@@ -150,12 +146,12 @@ pub trait Icon<E: AsRef<u32> + Debug> {
     ///     }
     /// }
     /// ```
-    fn add_entries<F: FnMut(&SourceImage, u32) -> Result<DynamicImage>,I: IntoIterator<Item = E>>(
+    fn add_entries<F: FnMut(&SourceImage, u32) -> Result<DynamicImage, Error<E>>,I: IntoIterator<Item = E>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
         entries: I
-    ) -> Result<()> {
+    ) -> Result<(), Error<E>> {
         for entry in entries {
             self.add_entry(|src, size| filter(src, size), source, entry)?;
         }
@@ -196,14 +192,17 @@ pub trait Icon<E: AsRef<u32> + Debug> {
     ///     icon.save("./output/out.ico")
     /// }
     /// ```
-    fn save<P: AsRef<Path>>(&mut self, path: &mut P) -> io::Result<()> {
+    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()> {
         let mut file = File::create(path.as_ref())?;
         self.write(&mut file)
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Entry(u32);
+
+#[derive(Clone, Debug, Eq, Hash)]
+pub struct NamedEntry(u32, PathBuf);
 
 #[derive(Clone)]
 /// A representation of a source image.
@@ -216,13 +215,14 @@ pub enum SourceImage {
 
 #[derive(Debug)]
 /// The error type for operations of the `Icon` trait.
-pub enum Error {
+pub enum Error<E: AsRef<u32> + Debug + Eq> {
     /// Error from the `usvg` crate.
     Usvg(usvg::Error),
     /// Error from the `image` crate.
     Image(ImageError),
     /// An unsupported size was suplied to an `Icon` operation.
     InvalidSize(u32),
+    AlreadyIncluded(E),
     /// Generic I/O error.
     Io(io::Error)
 }
@@ -230,6 +230,29 @@ pub enum Error {
 impl AsRef<u32> for Entry {
     fn as_ref(&self) -> &u32 {
         &self.0
+    }
+}
+
+impl NamedEntry {
+    /// Creates a `NamedEntry` from a reference to a `Path`.
+    /// # Example
+    /// ```rust
+    /// let entry = NamedEntry::from(32, &"icons/32/icon.png");
+    /// ```
+    pub fn from<P: AsRef<Path>>(size: u32, path: &P) -> Self {
+        NamedEntry(size, PathBuf::from(path.as_ref()))
+    }
+}
+
+impl AsRef<u32> for NamedEntry {
+    fn as_ref(&self) -> &u32 {
+        &self.0
+    }
+}
+
+impl PartialEq for NamedEntry {
+    fn eq(&self, other: &NamedEntry) -> bool {
+        self.1 == other.1
     }
 }
 
@@ -291,35 +314,36 @@ impl From<DynamicImage> for SourceImage {
     }
 }
 
-impl Display for Error {
+impl<E: AsRef<u32> + Debug + Eq> Display for Error<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::Usvg(err)      => write!(f, "{}", err),
-            Error::Image(err)     => write!(f, "{}", err),
-            Error::Io(err)        => write!(f, "{}", err),
-            Error::InvalidSize(_) => write!(f, "{}", INVALID_SIZE_ERROR)
+            Error::Usvg(err)          => write!(f, "{}", err),
+            Error::Image(err)         => write!(f, "{}", err),
+            Error::Io(err)            => write!(f, "{}", err),
+            Error::InvalidSize(s)     => write!(f, "{0}x{0} icons are not supported", s),
+            Error::AlreadyIncluded(_) => write!(f, "the icon already includes this entry")
         }
     }
 }
 
-impl error::Error for Error {
+impl<E: AsRef<u32> + Debug + Eq> error::Error for Error<E> {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            Error::Usvg(err)      => err.source(),
-            Error::Image(err)     => err.source(),
-            Error::Io(ref err)    => Some(err),
-            Error::InvalidSize(_) => None
+            Error::Usvg(err)   => err.source(),
+            Error::Image(err)  => err.source(),
+            Error::Io(ref err) => Some(err),
+            Error::InvalidSize(_) | Error::AlreadyIncluded(_) => None
         }
     }
 }
 
-impl From<usvg::Error> for Error {
+impl<E: AsRef<u32> + Debug + Eq> From<usvg::Error> for Error<E> {
     fn from(err: usvg::Error) -> Self {
         Error::Usvg(err)
     }
 }
 
-impl From<ImageError> for Error {
+impl<E: AsRef<u32> + Debug + Eq> From<ImageError> for Error<E> {
     fn from(err: ImageError) -> Self {
         match err {
             ImageError::IoError(err) => Error::Io(err),
@@ -328,25 +352,26 @@ impl From<ImageError> for Error {
     }
 }
 
-impl From<io::Error> for Error {
+impl<E: AsRef<u32> + Debug + Eq> From<io::Error> for Error<E> {
     fn from(err: io::Error) -> Self {
         Error::Io(err)
     }
 }
 
-impl Into<io::Error> for Error {
+impl<E: AsRef<u32> + Debug + Eq> Into<io::Error> for Error<E> {
     fn into(self) -> io::Error {
         match self {
-              Error::Image(ImageError::IoError(err))
+            Error::Image(ImageError::IoError(err))
             | Error::Io(err) => err,
 
-              Error::InvalidSize(_) 
+            Error::InvalidSize(_)
+            | Error::AlreadyIncluded(_)
             | Error::Usvg(usvg::Error::NotAnUtf8Str)
             | Error::Usvg(usvg::Error::InvalidSize)
             | Error::Usvg(usvg::Error::InvalidFileSuffix)
             => io::Error::from(io::ErrorKind::InvalidInput),
 
-              Error::Image(ImageError::DimensionError)
+            Error::Image(ImageError::DimensionError)
             | Error::Image(ImageError::FormatError(_))
             | Error::Image(ImageError::UnsupportedColor(_))
             | Error::Image(ImageError::UnsupportedError(_))
@@ -354,11 +379,11 @@ impl Into<io::Error> for Error {
             | Error::Usvg(usvg::Error::ParsingFailed(_))
             => io::Error::from(io::ErrorKind::InvalidData),
 
-              Error::Image(ImageError::ImageEnd)
+            Error::Image(ImageError::ImageEnd)
             | Error::Image(ImageError::NotEnoughData)
             => io::Error::from(io::ErrorKind::UnexpectedEof),
 
-              Error::Image(ImageError::InsufficientMemory)
+            Error::Image(ImageError::InsufficientMemory)
             | Error::Usvg(usvg::Error::FileOpenFailed)
             => io::Error::from(io::ErrorKind::Other)
         }

@@ -273,9 +273,9 @@ impl SourceImage {
     /// 
     /// # Example
     /// ```rust
-    /// let img = SourceImage::from_path("source.png")?;
+    /// let img = SourceImage::open("source.png")?;
     /// ```
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> {
+    pub fn open<P: AsRef<Path>>(path: P) -> Option<Self> {
         if let Ok(ras) = image::open(&path) {
             return Some(SourceImage::from(ras));
         }

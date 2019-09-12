@@ -28,10 +28,10 @@ fn test_resample() {
     let mut file_svg    = File::create("tests/test_svg.png")
         .expect("Couldn't create file");
 
-    let hydra = SourceImage::from_path("tests/hydra.png")
+    let hydra = SourceImage::open("tests/hydra.png")
         .expect("File not found");
 
-    let box_svg = SourceImage::from_path("tests/box.svg")
+    let box_svg = SourceImage::open("tests/box.svg")
         .expect("File not found");
 
     png!(resample::nearest, &hydra  , &mut file_near);
@@ -46,7 +46,7 @@ fn test_ico() {
         .expect("Couldn't create file"));
 
     let mut icon = Ico::new();
-    let img = SourceImage::from_path("tests/hydra.png")
+    let img = SourceImage::open("tests/hydra.png")
         .expect("File not found");
 
     if let Err(err) = icon.add_entries(resample::nearest, &img, vec![Entry(32), Entry(64)]) {
@@ -72,7 +72,7 @@ fn test_icns() {
         .expect("Couldn't create file"));
 
     let mut icon = Icns::new();
-    let img = SourceImage::from_path("tests/hydra.png")
+    let img = SourceImage::open("tests/hydra.png")
         .expect("File not found");
 
     if let Err(err) = icon.add_entries(resample::nearest, &img, vec![Entry(32), Entry(64)]) {
@@ -98,7 +98,7 @@ fn test_png() {
         .expect("Couldn't create file");
 
     let mut icon = PngSequence::new();
-    let img = SourceImage::from_path("tests/hydra.png")
+    let img = SourceImage::open("tests/hydra.png")
         .expect("File not found");
 
     let entries = vec![

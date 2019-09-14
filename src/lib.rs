@@ -69,7 +69,7 @@ mod png_sequence;
 pub mod resample;
 
 const STD_CAPACITY: usize = 7;
-const INVALID_DIM_ERR: &str = "a resampling filter return images of invalid resolution";
+const INVALID_DIM_ERR: &str = "a resampling filter returned images of invalid resolution";
 
 /// A generic representation of an icon encoder.
 pub trait Icon<E: AsRef<u32> + Debug + Eq> {

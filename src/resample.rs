@@ -5,10 +5,7 @@ use image::{imageops, DynamicImage, ImageBuffer, GenericImageView, FilterType, B
 use resvg::{usvg::{self, Tree}, raqote::DrawTarget , FitTo};
 
 /// [Linear resampling filter](https://en.wikipedia.org/wiki/Linear_interpolation).
-pub fn linear(
-    source: &SourceImage,
-    size: u32
-) -> DynamicImage {
+pub fn linear(source: &SourceImage, size: u32) -> DynamicImage {
     match source {
         SourceImage::Raster(bit) => scale(bit, size, FilterType::Triangle),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
@@ -16,10 +13,7 @@ pub fn linear(
 }
 
 /// [Lanczos resampling filter](https://en.wikipedia.org/wiki/Lanczos_resampling).
-pub fn cubic(
-    source: &SourceImage,
-    size: u32
-) -> DynamicImage {
+pub fn cubic(source: &SourceImage, size: u32) -> DynamicImage {
     match source {
         SourceImage::Raster(bit) => scale(bit, size, FilterType::Lanczos3),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
@@ -27,38 +21,30 @@ pub fn cubic(
 }
 
 /// [Nearest-Neighbor resampling filter](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation).
-pub fn nearest(
-    source: &SourceImage,
-    size: u32
-) -> DynamicImage {
+pub fn nearest(source: &SourceImage, size: u32) -> DynamicImage {
     match source {
-        SourceImage::Raster(bit) => nearest::resample(bit, size),
+        SourceImage::Raster(bit) => nearest_raster(bit, size),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
     }
 }
 
-mod nearest {
-    use super::{overfit, scale};
-    use image::{imageops, DynamicImage, GenericImageView, FilterType};
+fn nearest_raster(source: &DynamicImage, size: u32) -> DynamicImage {
+    let scaled = if source.width() < size && source.height() < size {
+        nearest_upscale_integer(source, size)
+    } else {
+        scale(source, size, FilterType::Nearest)
+    };
 
-    pub fn resample(source: &DynamicImage, size: u32) -> DynamicImage {
-        let scaled = if source.width() < size as u32 && source.height() < size as u32 {
-            scale_integer(source, size)
-        } else {
-            scale(source, size, FilterType::Nearest)
-        };
+    overfit(&scaled, size)
+}
 
-        overfit(&scaled, size)
-    }
+fn nearest_upscale_integer(source: &DynamicImage, size: u32) -> DynamicImage {
+    let (w ,  h) = source.dimensions();
 
-    fn scale_integer(source: &DynamicImage, size: u32) -> DynamicImage {
-        let (w ,  h) = source.dimensions();
+    let scale = if w > h { size / w } else { size / h };
+    let (nw, nh) = (w * scale, h * scale);
 
-        let scale = if w > h { size / w } else { size / h };
-        let (nw, nh) = (w * scale, h * scale);
-
-        DynamicImage::ImageRgba8(imageops::resize(source, nw, nh, FilterType::Nearest))
-    }
+    DynamicImage::ImageRgba8(imageops::resize(source, nw, nh, FilterType::Nearest))
 }
 
 fn scale(source: &DynamicImage, size: u32, filter: FilterType) -> DynamicImage {
@@ -79,10 +65,7 @@ fn overfit(source: &DynamicImage, size: u32) -> DynamicImage {
     output
 }
 
-fn svg_linear(
-    source: &Tree,
-    size: u32
-) -> DynamicImage {
+fn svg_linear(source: &Tree, size: u32) -> DynamicImage {
     let rect = source.svg_node().view_box.rect;
     let (w, h) = (rect.width(), rect.height());
     let fit_to = if w > h { FitTo::Width(size) } else { FitTo::Height(size) };
@@ -93,24 +76,23 @@ fn svg_linear(
         background: None
     };
 
-    // This function only returns None when the image width or height is zero.
-    // In this context it's safe to assume it will return Some(_)
-    match resvg::backend_raqote::render_to_image(source, &opts) {
-        Some(surface) => draw_target_to_rgba(surface, size),
-        None => panic!("could not render svg tree to image buffer")
-    }
+    // In this context it's safe to assume render_to_image will return Some(_)
+    // https://github.com/RazrFalcon/resvg/issues/175#issuecomment-531477376
+    let draw_target = resvg::backend_raqote::render_to_image(source, &opts)
+        .expect("Could not render svg tree to image buffer");
+
+    draw_target_to_rgba(draw_target, size)
 }
 
 #[inline]
-fn draw_target_to_rgba(
-    mut surface: DrawTarget,
-    size: u32
-) -> DynamicImage {
+fn draw_target_to_rgba(mut surface: DrawTarget, size: u32) -> DynamicImage {
     let (w, h) = (surface.width() as u32, surface.height() as u32);
     let data = surface.get_data_u8_mut().to_vec();
 
+    // If ImageBuffer::from_vec returns None then there's a bug in
+    // resvg
     match ImageBuffer::<Bgra<u8>, Vec<u8>>::from_vec(w, h, data) {
         Some(buf) => overfit(&DynamicImage::ImageBgra8(buf), size),
-        None      => panic!("buffer in not big enought")
+        None      => panic!("Buffer in not big enought")
     }
 }

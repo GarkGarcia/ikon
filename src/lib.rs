@@ -1,49 +1,49 @@
-//! A simple solution for encoding common icon file-formats, such as `.ico` and `.icns`. 
-//! 
-//! This crate is mostly a wrapper for other libraries, unifying existing APIs into a single, cohesive 
+//! A simple solution for encoding common icon file-formats, such as `.ico` and `.icns`.
+//!
+//! This crate is mostly a wrapper for other libraries, unifying existing APIs into a single, cohesive
 //! interface. It serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)** internal library.
-//! 
+//!
 //! # Overview
-//! 
+//!
 //! An _icon_ consists of a set of _entries_. An _entry_ is simply an image that has a particular size.
 //! **IconBaker** simply automates the process of re-scaling pictures and combining them into an _icon_.
-//! 
-//! Pictures are scaled using resampling filters, which are represented by _functions that take a source_ 
+//!
+//! Pictures are scaled using resampling filters, which are represented by _functions that take a source_
 //! _image and a size and return a re-scaled image_.
-//! 
-//! This allows the users of this crate to provide their custom resampling filters. Common resampling 
-//! filters are provided in the 
+//!
+//! This allows the users of this crate to provide their custom resampling filters. Common resampling
+//! filters are provided in the
 //! [`resample`](https://docs.rs/icon_baker/2.2.0/icon_baker/resample/index.html) module.
-//! 
+//!
 //! # Examples
-//! 
+//!
 //! ## General Usage
-//! 
+//!
 //! ```rust
 //! use icon_baker::{Ico, SourceImage, Icon};
 //! use icon_baker::Error as IconError;
 //!  
 //! fn example() -> Result<(), IconError> {
 //!     let icon = Ico::new();
-//! 
+//!
 //!     match SourceImage::from_path("image.svg") {
 //!         Some(img) => icon.add_entry(resample::linear, &img, 32),
 //!         None      => Ok(())
 //!     }
 //! }
 //! ```
-//! 
+//!
 //! ## Writing to a File
-//! 
+//!
 //! ```rust
 //! use icon_baker::*;
 //! use std::{io, fs::File};
 //!  
 //! fn example() -> io::Result<()> {
 //!     let icon = PngSequence::new();
-//! 
+//!
 //!     /* Process the icon */
-//! 
+//!
 //!     let file = File::create("out.icns")?;
 //!     icon.write(file)
 //! }
@@ -52,21 +52,28 @@
 pub extern crate image;
 pub extern crate resvg;
 
-pub use resvg::{usvg, raqote};
-use std::{error, convert::From, path::{Path, PathBuf}, io::{self, Write}, fs::File, fmt::{self, Display, Debug}};
-use image::{DynamicImage, GenericImageView};
 use crate::usvg::Tree;
+use image::{DynamicImage, GenericImageView};
+pub use resvg::{raqote, usvg};
+use std::{
+    convert::From,
+    error,
+    fmt::{self, Debug, Display},
+    fs::File,
+    io::{self, Write},
+    path::{Path, PathBuf},
+};
 
-pub use crate::ico::Ico;
 pub use crate::icns::Icns;
+pub use crate::ico::Ico;
 pub use crate::png_sequence::PngSequence;
 
-#[cfg(test)]
-mod test;
-mod ico;
 mod icns;
+mod ico;
 mod png_sequence;
 pub mod resample;
+#[cfg(test)]
+mod test;
 
 const STD_CAPACITY: usize = 7;
 const INVALID_DIM_ERR: &str = "a resampling filter returned images of invalid resolution";
@@ -74,7 +81,7 @@ const INVALID_DIM_ERR: &str = "a resampling filter returned images of invalid re
 /// A generic representation of an icon encoder.
 pub trait Icon<E: AsRef<u32> + Debug + Eq> {
     /// Creates a new icon.
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// let icon = Ico::new();
@@ -82,29 +89,33 @@ pub trait Icon<E: AsRef<u32> + Debug + Eq> {
     fn new() -> Self;
 
     /// Adds an individual entry to the icon.
-    /// 
+    ///
     /// # Arguments
+    ///
     /// * `filter` The resampling filter that will be used to re-scale `source`.
     /// * `source` A reference to the source image this entry will be based on.
-    /// * `size` The target size of the entry in pixels.
-    /// 
+    /// * `entry` Information on the target entry.
+    ///
     /// # Return Value
-    /// * Returns `Err(Error::InvalidSize(_))` if the dimensions provided in the
-    ///  `size` argument are not supported.
-    /// * Returns `Err(Error::Image(ImageError::DimensionError))`
-    ///  if the resampling filter provided in the `filter` argument produces
-    ///  results of dimensions other than the ones specified by `size`.
-    /// * Otherwise return `Ok(())`.
-    /// 
+    ///
+    /// * Returns `Err(Error::InvalidDimensions(_))` if the dimensions provided in the
+    ///   `entry` argument are not supported.
+    /// * Returns `Err(Error::AlreadyIncluded(_))` if the icon already contains
+    ///   the target entry.
+    /// * Returns `Err(Error::MismatchedDimensions(_, (_, _)))`
+    ///   if the resampling filter provided in the `filter` argument produces
+    ///   results of dimensions other than the ones specified by `entry`.
+    /// * Otherwise returns `Ok(())`.
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use icon_baker::{Ico, SourceImage, Icon};
     /// use icon_baker::Error as IconError;
     ///  
     /// fn example() -> Result<(), IconError> {
     ///     let icon = Ico::new();
-    /// 
+    ///
     ///     match SourceImage::from_path("image.svg") {
     ///         Some(img) => icon.add_entry(resample::linear, &img, 32),
     ///         None      => Ok(())
@@ -115,32 +126,37 @@ pub trait Icon<E: AsRef<u32> + Debug + Eq> {
         &mut self,
         filter: F,
         source: &SourceImage,
-        entry: E
+        entry: E,
     ) -> Result<(), Error<E>>;
 
     /// Adds a series of entries to the icon.
+    ///
     /// # Arguments
+    ///
     /// * `filter` The resampling filter that will be used to re-scale `source`.
     /// * `source` A reference to the source image this entry will be based on.
-    /// * `size` A container for the target sizes of the entries in pixels.
-    /// 
+    /// * `entries` A container for the information on the target entries.
+    ///
     /// # Return Value
-    /// * Returns `Err(Error::InvalidSize(_))` if the dimensions provided in the
-    ///  `size` argument are not supported.
-    /// * Returns `Err(Error::Image(ImageError::DimensionError))`
-    ///  if the resampling filter provided in the `filter` argument produces
-    ///  results of dimensions other than the ones specified by `size`.
-    /// * Otherwise return `Ok(())`.
-    /// 
+    ///
+    /// * Returns `Err(Error::InvalidDimensions(_))` if any of the items of `entries`
+    ///   provides unsupported dimensions.
+    /// * Returns `Err(Error::AlreadyIncluded(_))` if the icon already contains
+    ///   any of the target entries.
+    /// * Returns `Err(Error::MismatchedDimensions(_, (_, _)))`
+    ///   if the resampling filter provided in the `filter` argument produces
+    ///   results of dimensions other than the ones specified by `entries`.
+    /// * Otherwise returns `Ok(())`.
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use icon_baker::{Icns, SourceImage, Icon};
     /// use icon_baker::Error as IconError;
     ///  
     /// fn example() -> Result<(), IconError> {
     ///     let icon = Icns::new();
-    /// 
+    ///
     ///     match SourceImage::from_path("image.svg") {
     ///         Some(img) => icon.add_entries(
     ///             resample::linear,
@@ -155,7 +171,7 @@ pub trait Icon<E: AsRef<u32> + Debug + Eq> {
         &mut self,
         mut filter: F,
         source: &SourceImage,
-        entries: I
+        entries: I,
     ) -> Result<(), Error<E>> {
         for entry in entries {
             self.add_entry(|src, size| filter(src, size), source, entry)?;
@@ -165,18 +181,18 @@ pub trait Icon<E: AsRef<u32> + Debug + Eq> {
     }
 
     /// Writes the contents of the icon to `w`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use icon_baker::*;
     /// use std::{io, fs::File};
     ///  
     /// fn example() -> io::Result<()> {
     ///     let icon = PngSequence::new();
-    /// 
+    ///
     ///     /* Process the icon */
-    /// 
+    ///
     ///     let file = File::create("out.icns")?;
     ///     icon.write(file)
     /// }
@@ -184,18 +200,18 @@ pub trait Icon<E: AsRef<u32> + Debug + Eq> {
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()>;
 
     /// Writes the contents of the icon to a file on disk.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use icon_baker::*;
     /// use std::{io, fs::File};
     ///  
     /// fn example() -> io::Result<()> {
     ///     let icon = Ico::new();
-    /// 
+    ///
     ///     /* Process the icon */
-    /// 
+    ///
     ///     icon.save("./output/out.ico")
     /// }
     /// ```
@@ -217,7 +233,7 @@ pub enum SourceImage {
     /// A generic raster image.
     Raster(DynamicImage),
     /// A svg-encoded vector image.
-    Svg(Tree)
+    Svg(Tree),
 }
 
 #[derive(Debug)]
@@ -225,14 +241,14 @@ pub enum SourceImage {
 pub enum Error<E: AsRef<u32> + Debug + Eq> {
     /// The `Icon` instance already includes this entry.
     AlreadyIncluded(E),
-    /// The return value of a resampling filter has invalid
-    /// dimensions: the dimensions do not match the ones
-    /// specified in the application of the filter.
-    InvalidDimensions(u32, (u32, u32)),
-    /// An unsupported size was suplied to an `Icon` operation.
-    InvalidSize(u32),
     /// Generic I/O error.
-    Io(io::Error)
+    Io(io::Error),
+    /// Unsupported dimensions was suplied to an `Icon`
+    /// operation.
+    InvalidDimensions(u32),
+    /// A resampling filter produced results of dimensions
+    /// other the ones specified by it's arguments.
+    MismatchedDimensions(u32, (u32, u32)),
 }
 
 impl AsRef<u32> for Entry {
@@ -266,15 +282,15 @@ impl PartialEq for NamedEntry {
 
 impl SourceImage {
     /// Attempts to create a `SourceImage` from a given path.
-    /// 
+    ///
     /// The `SourceImage::from::<image::DynamicImage>` and `SourceImage::from::<usvg::Tree>`
     /// methods should always be preferred.
-    /// 
+    ///
     /// # Return Value
-    /// * Returns `Some(src)` if the file indicated by the `path` argument could be 
+    /// * Returns `Some(src)` if the file indicated by the `path` argument could be
     ///   successfully parsed into an image.
     /// * Returns `None` otherwise.
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// let img = SourceImage::open("source.png")?;
@@ -285,14 +301,15 @@ impl SourceImage {
         }
 
         Tree::from_file(&path, &usvg::Options::default())
-            .ok().map(|svg| SourceImage::from(svg))
+            .ok()
+            .map(|svg| SourceImage::from(svg))
     }
 
     /// Returns the width of the original image in pixels.
     pub fn width(&self) -> f64 {
         match self {
             SourceImage::Raster(ras) => ras.width() as f64,
-            SourceImage::Svg(svg)    => svg.svg_node().view_box.rect.width()
+            SourceImage::Svg(svg) => svg.svg_node().view_box.rect.width(),
         }
     }
 
@@ -300,7 +317,7 @@ impl SourceImage {
     pub fn height(&self) -> f64 {
         match self {
             SourceImage::Raster(ras) => ras.height() as f64,
-            SourceImage::Svg(svg)    => svg.svg_node().view_box.rect.height()
+            SourceImage::Svg(svg) => svg.svg_node().view_box.rect.height(),
         }
     }
 
@@ -326,10 +343,13 @@ impl<E: AsRef<u32> + Debug + Eq> Display for Error<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::AlreadyIncluded(_) => write!(f, "the icon already includes this entry"),
-            Error::InvalidSize(s)     => write!(f, "{0}x{0} icons are not supported", s),
-            Error::Io(err)            => write!(f, "{}", err),
-            Error::InvalidDimensions(s, (w, h))
-                => write!(f, "{0}: expected {1}x{1} and got {2}x{3}", INVALID_DIM_ERR, s, w, h)
+            Error::InvalidDimensions(s) => write!(f, "{0}x{0} icons are not supported", s),
+            Error::Io(err) => write!(f, "{}", err),
+            Error::MismatchedDimensions(s, (w, h)) => write!(
+                f,
+                "{0}: expected {1}x{1} and got {2}x{3}",
+                INVALID_DIM_ERR, s, w, h
+            ),
         }
     }
 }
@@ -353,9 +373,9 @@ impl<E: AsRef<u32> + Debug + Eq> From<io::Error> for Error<E> {
 impl<E: AsRef<u32> + Debug + Eq> Into<io::Error> for Error<E> {
     fn into(self) -> io::Error {
         match self {
-            Error::Io(err)                 => err,
-            Error::InvalidDimensions(_, _) => io::Error::from(io::ErrorKind::InvalidData),
-            _                              => io::Error::from(io::ErrorKind::InvalidInput)
+            Error::Io(err) => err,
+            Error::MismatchedDimensions(_, _) => io::Error::from(io::ErrorKind::InvalidData),
+            _ => io::Error::from(io::ErrorKind::InvalidInput),
         }
     }
 }

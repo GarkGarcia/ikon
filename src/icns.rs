@@ -1,20 +1,24 @@
 extern crate icns;
 
-use crate::{Icon, Entry, SourceImage, Error, STD_CAPACITY};
-use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
+use crate::{Entry, Error, Icon, SourceImage, STD_CAPACITY};
 use image::{DynamicImage, GenericImageView};
+use std::{
+    fmt::{self, Debug, Formatter},
+    io::{self, Write},
+    result,
+};
 
 /// A collection of entries stored in a single `.icns` file.
 pub struct Icns {
     icon_family: icns::IconFamily,
-    entries: Vec<u32>
+    entries: Vec<u32>,
 }
 
 impl Icon<Entry> for Icns {
     fn new() -> Self {
         Icns {
             icon_family: icns::IconFamily::new(),
-            entries: Vec::with_capacity(STD_CAPACITY)
+            entries: Vec::with_capacity(STD_CAPACITY),
         }
     }
 
@@ -22,7 +26,7 @@ impl Icon<Entry> for Icns {
         &mut self,
         mut filter: F,
         source: &SourceImage,
-        entry: Entry
+        entry: Entry,
     ) -> Result<(), Error<Entry>> {
         let icon = filter(source, entry.0);
         let data = icon.to_rgba().into_vec();
@@ -34,12 +38,13 @@ impl Icon<Entry> for Icns {
         // The Image::from_data method only fails when the specified
         // image dimensions do not fit the buffer length
         let image = icns::Image::from_data(icns::PixelFormat::RGBA, entry.0, entry.0, data)
-            .map_err(|_| Error::InvalidDimensions(entry.0, icon.dimensions()))?;
+            .map_err(|_| Error::MismatchedDimensions(entry.0, icon.dimensions()))?;
 
         // The IconFamily::add_icon method only fails when the
         // specified image dimensions are not supported by ICNS
-        self.icon_family.add_icon(&image)
-            .map_err(|_| Error::InvalidSize(entry.0))
+        self.icon_family
+            .add_icon(&image)
+            .map_err(|_| Error::InvalidDimensions(entry.0))
     }
 
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
@@ -50,7 +55,7 @@ impl Icon<Entry> for Icns {
 impl Clone for Icns {
     fn clone(&self) -> Self {
         let mut icon_family = icns::IconFamily {
-            elements: Vec::with_capacity(self.icon_family.elements.len())
+            elements: Vec::with_capacity(self.icon_family.elements.len()),
         };
 
         for element in &self.icon_family.elements {
@@ -61,21 +66,28 @@ impl Clone for Icns {
 
         Icns {
             icon_family,
-            entries: self.entries.clone()
+            entries: self.entries.clone(),
         }
     }
 }
 
 macro_rules! element {
     ($elm:expr) => {
-        format!("IconElement {{ ostype: {:?}, data: {:?} }}", $elm.ostype, $elm.data )
+        format!(
+            "IconElement {{ ostype: {:?}, data: {:?} }}",
+            $elm.ostype, $elm.data
+        )
     };
 }
 
 impl Debug for Icns {
     fn fmt(&self, f: &mut Formatter) -> result::Result<(), fmt::Error> {
-        let entries_strs: Vec<String> = self.icon_family.elements.iter()
-            .map(|element| element!(element)).collect();
+        let entries_strs: Vec<String> = self
+            .icon_family
+            .elements
+            .iter()
+            .map(|element| element!(element))
+            .collect();
 
         let icon_dir = format!(
             "icns::IconFamily {{ elements: [{}] }}",

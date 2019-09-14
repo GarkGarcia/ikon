@@ -1,8 +1,12 @@
 extern crate ico;
 
-use crate::{Icon, SourceImage, Entry, Error, STD_CAPACITY};
-use std::{result, io::{self, Write}, fmt::{self, Debug, Formatter}};
+use crate::{Entry, Error, Icon, SourceImage, STD_CAPACITY};
 use image::{DynamicImage, GenericImageView};
+use std::{
+    fmt::{self, Debug, Formatter},
+    io::{self, Write},
+    result,
+};
 
 const MIN_ICO_SIZE: u32 = 1;
 const MAX_ICO_SIZE: u32 = 256;
@@ -11,14 +15,14 @@ const MAX_ICO_SIZE: u32 = 256;
 #[derive(Clone)]
 pub struct Ico {
     icon_dir: ico::IconDir,
-    entries: Vec<u32>
+    entries: Vec<u32>,
 }
 
 impl Icon<Entry> for Ico {
     fn new() -> Self {
         Ico {
             icon_dir: ico::IconDir::new(ico::ResourceType::Icon),
-            entries: Vec::with_capacity(STD_CAPACITY)
+            entries: Vec::with_capacity(STD_CAPACITY),
         }
     }
 
@@ -26,10 +30,10 @@ impl Icon<Entry> for Ico {
         &mut self,
         mut filter: F,
         source: &SourceImage,
-        entry: Entry
+        entry: Entry,
     ) -> Result<(), Error<Entry>> {
         if entry.0 < MIN_ICO_SIZE || entry.0 > MAX_ICO_SIZE {
-            return Err(Error::InvalidSize(entry.0));
+            return Err(Error::InvalidDimensions(entry.0));
         }
 
         if self.entries.contains(&entry.0) {
@@ -39,7 +43,7 @@ impl Icon<Entry> for Ico {
         let icon = filter(source, entry.0);
         let (icon_w, icon_h) = icon.dimensions();
         if icon_w != entry.0 || icon_h != entry.0 {
-            return Err(Error::InvalidDimensions(entry.0, (icon_w, icon_h)));
+            return Err(Error::MismatchedDimensions(entry.0, (icon_w, icon_h)));
         }
 
         let size = icon.width();
@@ -66,7 +70,7 @@ impl Debug for Ico {
             entries_str.push_str("ico::IconDirEntry {{ /* fields omitted */ }}, ");
         }
 
-        let icon_dir= format!(
+        let icon_dir = format!(
             "ico::IconDir {{ restype: ico::ResourceType::Icon, entries: [{:?}] }}",
             entries_str
         );

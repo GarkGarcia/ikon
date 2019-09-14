@@ -97,6 +97,7 @@ pub trait Icon<E: AsRef<u32> + Debug + Eq> {
     /// * Otherwise return `Ok(())`.
     /// 
     /// # Example
+    /// 
     /// ```rust
     /// use icon_baker::{Ico, SourceImage, Icon};
     /// use icon_baker::Error as IconError;
@@ -132,6 +133,7 @@ pub trait Icon<E: AsRef<u32> + Debug + Eq> {
     /// * Otherwise return `Ok(())`.
     /// 
     /// # Example
+    /// 
     /// ```rust
     /// use icon_baker::{Icns, SourceImage, Icon};
     /// use icon_baker::Error as IconError;
@@ -165,6 +167,7 @@ pub trait Icon<E: AsRef<u32> + Debug + Eq> {
     /// Writes the contents of the icon to `w`.
     /// 
     /// # Example
+    /// 
     /// ```rust
     /// use icon_baker::*;
     /// use std::{io, fs::File};
@@ -183,6 +186,7 @@ pub trait Icon<E: AsRef<u32> + Debug + Eq> {
     /// Writes the contents of the icon to a file on disk.
     /// 
     /// # Example
+    /// 
     /// ```rust
     /// use icon_baker::*;
     /// use std::{io, fs::File};

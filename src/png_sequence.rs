@@ -1,22 +1,21 @@
 extern crate tar;
 extern crate image;
 
-use crate::{Icon, SourceImage, NamedEntry, Error};
-use std::{io::{self, Write}, collections::HashMap};
+use crate::{Icon, SourceImage, NamedEntry, Error, STD_CAPACITY};
+use std::{io::{self, Write}, fs::File, path::{Path, PathBuf}, collections::HashMap};
 use image::{png::PNGEncoder, DynamicImage, GenericImageView, ColorType};
 
 const MIN_PNG_SIZE: u32 = 1;
-const STD_CAPACITY: usize = 7;
 
-/// A collection of images stored in a single `.tar` file.
+/// A collection of entries stored in a single `.tar` file.
 #[derive(Clone, Debug)]
 pub struct PngSequence {
-    images: HashMap<NamedEntry, Vec<u8>>
+    entries: HashMap<PathBuf, Vec<u8>>
 }
 
 impl Icon<NamedEntry> for PngSequence {
     fn new() -> Self {
-        PngSequence { images: HashMap::with_capacity(STD_CAPACITY) }
+        PngSequence { entries: HashMap::with_capacity(STD_CAPACITY) }
     }
 
     fn add_entry<F: FnMut(&SourceImage, u32) -> DynamicImage>(
@@ -29,7 +28,7 @@ impl Icon<NamedEntry> for PngSequence {
             return Err(Error::InvalidSize(entry.0));
         }
 
-        if self.images.contains_key(&entry) {
+        if self.entries.contains_key(&entry.1) {
             return Err(Error::AlreadyIncluded(entry));
         }
 
@@ -47,7 +46,7 @@ impl Icon<NamedEntry> for PngSequence {
         let encoder = PNGEncoder::new(&mut image);
         encoder.encode(&data, entry.0, entry.0, ColorType::RGBA(8))?;
 
-        match self.images.insert(entry, image) {
+        match self.entries.insert(entry.1, image) {
             Some(img) => panic!("Sanity test failed: {:?} is already included.", img),
             None    => Ok(())
         }
@@ -56,18 +55,32 @@ impl Icon<NamedEntry> for PngSequence {
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         let mut tar_builder = tar::Builder::new(w);
 
-        for (entry, image) in &self.images {
+        for (path, image) in &self.entries {
             let mut header = tar::Header::new_gnu();
             header.set_size(image.len() as u64);
             header.set_cksum();
 
             tar_builder.append_data::<_, &[u8]>(
                 &mut header,
-                entry.1.clone(),
+                path.clone(),
                 image.as_ref()
             )?;
         }
 
         Ok(())
+    }
+
+    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()> {
+        if path.as_ref().is_file() {
+            let mut file = File::create(path.as_ref())?;
+            self.write(&mut file)
+        } else {
+            for (path, image) in &self.entries {
+                let mut file = File::create(path.clone())?;
+                file.write_all(image.as_ref())?;
+            }
+
+            Ok(())
+        }
     }
 }

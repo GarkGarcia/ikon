@@ -1,6 +1,7 @@
 //! A collection of commonly used resampling filters.
 
-use crate::SourceImage;
+use crate::{SourceImage, Error};
+use std::fmt::Debug;
 use image::{imageops, DynamicImage, ImageBuffer, GenericImageView, FilterType, Bgra};
 use resvg::{usvg::{self, Tree}, raqote::DrawTarget , FitTo};
 
@@ -94,5 +95,22 @@ fn draw_target_to_rgba(mut surface: DrawTarget, size: u32) -> DynamicImage {
     match ImageBuffer::<Bgra<u8>, Vec<u8>>::from_vec(w, h, data) {
         Some(buf) => overfit(&DynamicImage::ImageBgra8(buf), size),
         None      => panic!("Buffer in not big enought")
+    }
+}
+
+/// Aplies a resampling filter to a source and checks if the outputted dimensions match
+/// the ones specified by `size`.
+pub(crate) fn safe_filter<F: FnMut(&SourceImage, u32) -> DynamicImage, E: AsRef<u32> + Debug + Eq>(
+    mut filter: F,
+    source: &SourceImage,
+    size: u32
+) -> Result<DynamicImage, Error<E>> {
+    let icon = filter(source, size);
+    let (icon_w, icon_h) = icon.dimensions();
+
+    if icon_w != size || icon_h != size {
+        Err(Error::MismatchedDimensions(size, (icon_w, icon_h)))
+    } else {
+        Ok(icon)
     }
 }

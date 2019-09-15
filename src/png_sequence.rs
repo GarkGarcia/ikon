@@ -1,8 +1,8 @@
 extern crate image;
 extern crate tar;
 
-use crate::{Error, Icon, NamedEntry, SourceImage, STD_CAPACITY};
-use image::{png::PNGEncoder, ColorType, DynamicImage, GenericImageView};
+use crate::{resample, Icon, NamedEntry, SourceImage, Error, STD_CAPACITY};
+use image::{png::PNGEncoder, ColorType, DynamicImage};
 use std::{
     collections::HashMap,
     fs::File,
@@ -27,7 +27,7 @@ impl Icon<NamedEntry> for PngSequence {
 
     fn add_entry<F: FnMut(&SourceImage, u32) -> DynamicImage>(
         &mut self,
-        mut filter: F,
+        filter: F,
         source: &SourceImage,
         entry: NamedEntry,
     ) -> Result<(), Error<NamedEntry>> {
@@ -39,13 +39,9 @@ impl Icon<NamedEntry> for PngSequence {
             return Err(Error::AlreadyIncluded(entry));
         }
 
-        let icon = filter(source, entry.0);
-        let (icon_w, icon_h) = icon.dimensions();
-        if icon_w != entry.0 || icon_h != entry.0 {
-            return Err(Error::MismatchedDimensions(entry.0, (icon_w, icon_h)));
-        }
-
+        let icon = resample::safe_filter(filter, source, entry.0)?;
         let data = icon.to_rgba().into_raw();
+        
         // Encode the pixel data as PNG and store it in a Vec<u8>
         let mut image = Vec::with_capacity(data.len());
         let encoder = PNGEncoder::new(&mut image);

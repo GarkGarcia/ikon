@@ -1,7 +1,7 @@
 extern crate ico;
 
-use crate::{Entry, Error, Icon, SourceImage, STD_CAPACITY};
-use image::{DynamicImage, GenericImageView};
+use crate::{resample, Entry, Error, Icon, SourceImage, STD_CAPACITY};
+use image::DynamicImage;
 use std::{
     fmt::{self, Debug, Formatter},
     io::{self, Write},
@@ -28,7 +28,7 @@ impl Icon<Entry> for Ico {
 
     fn add_entry<F: FnMut(&SourceImage, u32) -> DynamicImage>(
         &mut self,
-        mut filter: F,
+        filter: F,
         source: &SourceImage,
         entry: Entry,
     ) -> Result<(), Error<Entry>> {
@@ -40,15 +40,9 @@ impl Icon<Entry> for Ico {
             return Err(Error::AlreadyIncluded(entry));
         }
 
-        let icon = filter(source, entry.0);
-        let (icon_w, icon_h) = icon.dimensions();
-        if icon_w != entry.0 || icon_h != entry.0 {
-            return Err(Error::MismatchedDimensions(entry.0, (icon_w, icon_h)));
-        }
-
-        let size = icon.width();
+        let icon = resample::safe_filter(filter, source, entry.0)?;
         let data = icon.to_rgba().into_vec();
-        let image = ico::IconImage::from_rgba_data(size, size, data);
+        let image = ico::IconImage::from_rgba_data(entry.0, entry.0, data);
 
         let entry = ico::IconDirEntry::encode(&image)?;
         self.icon_dir.add_entry(entry);

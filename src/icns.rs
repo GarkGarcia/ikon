@@ -5,7 +5,6 @@ use image::{DynamicImage, GenericImageView};
 use std::{
     fmt::{self, Debug, Formatter},
     io::{self, Write},
-    result,
 };
 
 /// A collection of entries stored in a single `.icns` file.
@@ -81,7 +80,7 @@ macro_rules! element {
 }
 
 impl Debug for Icns {
-    fn fmt(&self, f: &mut Formatter) -> result::Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let entries_strs: Vec<String> = self
             .icon_family
             .elements

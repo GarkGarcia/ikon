@@ -58,7 +58,7 @@ use image::{DynamicImage, GenericImageView};
 use std::{
     convert::From,
     error,
-    fmt::{self, Debug, Display},
+    fmt::{self, Debug, Display, Formatter},
     fs::File,
     io::{self, Write},
     path::{Path, PathBuf},
@@ -80,7 +80,7 @@ const INVALID_DIM_ERR: &str =
     "a resampling filter returned an image of dimensions other than the ones specified by it's arguments";
 
 /// A generic representation of an icon encoder.
-pub trait Icon<E: AsRef<u32> + Debug + Eq> {
+pub trait Icon<E: AsRef<u32>> {
     /// Creates a new icon.
     ///
     /// # Example
@@ -237,14 +237,13 @@ pub enum SourceImage {
     Svg(Tree),
 }
 
-#[derive(Debug)]
 /// The error type for operations of the `Icon` trait.
-pub enum Error<E: AsRef<u32> + Debug + Eq> {
+pub enum Error<E: AsRef<u32>> {
     /// The `Icon` instance already includes this entry.
     AlreadyIncluded(E),
     /// Generic I/O error.
     Io(io::Error),
-    /// Unsupported dimensions was suplied to an `Icon`
+    /// Unsupported dimensions were suplied to an `Icon`
     /// operation.
     InvalidDimensions(u32),
     /// A resampling filter produced results of dimensions
@@ -348,9 +347,20 @@ impl<E: AsRef<u32> + Debug + Eq> Display for Error<E> {
             Error::Io(err) => write!(f, "{}", err),
             Error::MismatchedDimensions(s, (w, h)) => write!(
                 f,
-                "{0}: expected {1}x{1} and got {2}x{3}",
+                "{0}: expected {1}x{1}, got {2}x{3}",
                 INVALID_DIM_ERR, s, w, h
             ),
+        }
+    }
+}
+
+impl <E: AsRef<u32> + Debug> Debug for Error<E> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Error::AlreadyIncluded(e) => write!(f, "Error::AlreadyIncluded({:?})", e),
+            Error::InvalidDimensions(s) => write!(f, "Error::InvalidDimensions({})", s),
+            Error::Io(err) => write!(f, "Error::Io({:?})", err),
+            Error::MismatchedDimensions(e, g) => write!(f, "Error::MismatchedDimensions({}, {:?})", e, g)
         }
     }
 }
@@ -365,13 +375,13 @@ impl<E: AsRef<u32> + Debug + Eq> error::Error for Error<E> {
     }
 }
 
-impl<E: AsRef<u32> + Debug + Eq> From<io::Error> for Error<E> {
+impl<E: AsRef<u32>> From<io::Error> for Error<E> {
     fn from(err: io::Error) -> Self {
         Error::Io(err)
     }
 }
 
-impl<E: AsRef<u32> + Debug + Eq> Into<io::Error> for Error<E> {
+impl<E: AsRef<u32>> Into<io::Error> for Error<E> {
     fn into(self) -> io::Error {
         match self {
             Error::Io(err) => err,

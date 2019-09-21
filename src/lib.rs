@@ -80,7 +80,7 @@ const INVALID_DIM_ERR: &str =
     "a resampling filter returned an image of dimensions other than the ones specified by it's arguments";
 
 /// A generic representation of an icon encoder.
-pub trait Icon<E: AsRef<u32>> {
+pub trait Icon<E: Entry> {
     /// Creates a new icon.
     ///
     /// # Example
@@ -222,11 +222,9 @@ pub trait Icon<E: AsRef<u32>> {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-/// An _entry type_ for simple icons that only associate images
-/// with their dimensions. Usefull for icon formats such as the
-/// `.ico` and `.icns` file formats.
-pub struct Size(u32);
+pub trait Entry {
+    fn size(&self) -> u32;
+}
 
 #[derive(Clone, Debug, Eq, Hash)]
 /// An _entry type_ for icon formats that consist of a collection
@@ -245,23 +243,14 @@ pub enum SourceImage {
 }
 
 /// The error type for operations of the `Icon` trait.
-pub enum Error<E: AsRef<u32>> {
+pub enum Error<E: Entry> {
     /// The `Icon` instance already includes this entry.
     AlreadyIncluded(E),
     /// Generic I/O error.
     Io(io::Error),
-    /// Unsupported dimensions were suplied to an `Icon`
-    /// operation.
-    InvalidDimensions(u32),
     /// A resampling filter produced results of dimensions
     /// other the ones specified by it's arguments.
     MismatchedDimensions(u32, (u32, u32)),
-}
-
-impl AsRef<u32> for Size {
-    fn as_ref(&self) -> &u32 {
-        &self.0
-    }
 }
 
 impl FileLabel {
@@ -275,9 +264,9 @@ impl FileLabel {
     }
 }
 
-impl AsRef<u32> for FileLabel {
-    fn as_ref(&self) -> &u32 {
-        &self.0
+impl Entry for FileLabel {
+    fn size(&self) -> u32 {
+        self.0
     }
 }
 
@@ -346,11 +335,10 @@ impl From<DynamicImage> for SourceImage {
     }
 }
 
-impl<E: AsRef<u32> + Debug + Eq> Display for Error<E> {
+impl<E: Entry + Debug + Eq> Display for Error<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::AlreadyIncluded(_) => write!(f, "the icon already includes this entry"),
-            Error::InvalidDimensions(s) => write!(f, "{0}x{0} icons are not supported", s),
             Error::Io(err) => write!(f, "{}", err),
             Error::MismatchedDimensions(s, (w, h)) => write!(
                 f,
@@ -361,18 +349,17 @@ impl<E: AsRef<u32> + Debug + Eq> Display for Error<E> {
     }
 }
 
-impl <E: AsRef<u32> + Debug> Debug for Error<E> {
+impl <E: Entry + Debug> Debug for Error<E> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Error::AlreadyIncluded(e) => write!(f, "Error::AlreadyIncluded({:?})", e),
-            Error::InvalidDimensions(s) => write!(f, "Error::InvalidDimensions({})", s),
             Error::Io(err) => write!(f, "Error::Io({:?})", err),
             Error::MismatchedDimensions(e, g) => write!(f, "Error::MismatchedDimensions({}, {:?})", e, g)
         }
     }
 }
 
-impl<E: AsRef<u32> + Debug + Eq> error::Error for Error<E> {
+impl<E: Entry + Debug + Eq> error::Error for Error<E> {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         if let Error::Io(ref err) = self {
             Some(err)
@@ -382,13 +369,13 @@ impl<E: AsRef<u32> + Debug + Eq> error::Error for Error<E> {
     }
 }
 
-impl<E: AsRef<u32>> From<io::Error> for Error<E> {
+impl<E: Entry> From<io::Error> for Error<E> {
     fn from(err: io::Error) -> Self {
         Error::Io(err)
     }
 }
 
-impl<E: AsRef<u32>> Into<io::Error> for Error<E> {
+impl<E: Entry> Into<io::Error> for Error<E> {
     fn into(self) -> io::Error {
         match self {
             Error::Io(err) => err,

@@ -18,6 +18,24 @@ pub struct PngSequence {
     entries: HashMap<PathBuf, Vec<u8>>,
 }
 
+impl PngSequence {
+    #[inline]
+    pub(crate) fn write_to_tar<W: Write>(
+        &self,
+        builder: &mut tar::Builder<W>
+    ) -> io::Result<()> {
+        for (path, image) in &self.entries {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(image.len() as u64);
+            header.set_cksum();
+
+            builder.append_data::<_, &[u8]>(&mut header, path.clone(), image.as_ref())?;
+        }
+
+        Ok(())
+    }
+}
+
 impl Icon<FileLabel> for PngSequence {
     fn new() -> Self {
         PngSequence {
@@ -55,16 +73,7 @@ impl Icon<FileLabel> for PngSequence {
 
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         let mut tar_builder = tar::Builder::new(w);
-
-        for (path, image) in &self.entries {
-            let mut header = tar::Header::new_gnu();
-            header.set_size(image.len() as u64);
-            header.set_cksum();
-
-            tar_builder.append_data::<_, &[u8]>(&mut header, path.clone(), image.as_ref())?;
-        }
-
-        Ok(())
+        self.write_to_tar(&mut tar_builder)
     }
 
     fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()> {

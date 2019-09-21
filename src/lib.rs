@@ -20,10 +20,9 @@
 //! ## General Usage
 //!
 //! ```rust
-//! use icon_baker::{Ico, SourceImage, Icon};
-//! use icon_baker::Error as IconError;
+//! use icon_baker::{Ico, SourceImage, Icon, Error};
 //!  
-//! fn example() -> Result<(), IconError> {
+//! fn example() -> Result<(), Error> {
 //!     let icon = Ico::new();
 //!
 //!     match SourceImage::from_path("image.svg") {
@@ -64,13 +63,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub use crate::icns::Icns;
-pub use crate::ico::Ico;
-pub use crate::png_sequence::PngSequence;
-
-mod icns;
-mod ico;
-mod png_sequence;
+pub mod icns;
+pub mod ico;
+pub mod favicon;
+pub mod png_sequence;
 pub mod resample;
 #[cfg(test)]
 mod test;
@@ -111,10 +107,9 @@ pub trait Icon<E: AsRef<u32>> {
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::{Ico, SourceImage, Icon};
-    /// use icon_baker::Error as IconError;
+    /// use icon_baker::{Ico, SourceImage, Icon, Error};
     ///  
-    /// fn example() -> Result<(), IconError> {
+    /// fn example() -> Result<(), Error> {
     ///     let icon = Ico::new();
     ///
     ///     match SourceImage::from_path("image.svg") {
@@ -152,10 +147,9 @@ pub trait Icon<E: AsRef<u32>> {
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::{Icns, SourceImage, Icon};
-    /// use icon_baker::Error as IconError;
+    /// use icon_baker::{Icns, SourceImage, Icon, Error};
     ///  
-    /// fn example() -> Result<(), IconError> {
+    /// fn example() -> Result<(), Error> {
     ///     let icon = Icns::new();
     ///
     ///     match SourceImage::from_path("image.svg") {

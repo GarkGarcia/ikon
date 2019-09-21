@@ -1,7 +1,7 @@
 extern crate image;
 extern crate tar;
 
-use crate::{resample, Icon, NamedEntry, SourceImage, Error, STD_CAPACITY};
+use crate::{resample, Icon, FileLabel, SourceImage, Error, STD_CAPACITY};
 use image::{png::PNGEncoder, ColorType, DynamicImage};
 use std::{
     collections::HashMap,
@@ -18,7 +18,7 @@ pub struct PngSequence {
     entries: HashMap<PathBuf, Vec<u8>>,
 }
 
-impl Icon<NamedEntry> for PngSequence {
+impl Icon<FileLabel> for PngSequence {
     fn new() -> Self {
         PngSequence {
             entries: HashMap::with_capacity(STD_CAPACITY),
@@ -29,8 +29,8 @@ impl Icon<NamedEntry> for PngSequence {
         &mut self,
         filter: F,
         source: &SourceImage,
-        entry: NamedEntry,
-    ) -> Result<(), Error<NamedEntry>> {
+        entry: FileLabel,
+    ) -> Result<(), Error<FileLabel>> {
         if entry.0 < MIN_PNG_SIZE {
             return Err(Error::InvalidDimensions(entry.0));
         }

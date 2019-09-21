@@ -1,6 +1,6 @@
 extern crate icns;
 
-use crate::{Entry, Error, Icon, SourceImage, STD_CAPACITY};
+use crate::{Size, Icon, SourceImage, Error, STD_CAPACITY};
 use image::{DynamicImage, GenericImageView};
 use std::{
     fmt::{self, Debug, Formatter},
@@ -13,7 +13,7 @@ pub struct Icns {
     entries: Vec<u32>,
 }
 
-impl Icon<Entry> for Icns {
+impl Icon<Size> for Icns {
     fn new() -> Self {
         Icns {
             icon_family: icns::IconFamily::new(),
@@ -25,8 +25,8 @@ impl Icon<Entry> for Icns {
         &mut self,
         mut filter: F,
         source: &SourceImage,
-        entry: Entry,
-    ) -> Result<(), Error<Entry>> {
+        entry: Size
+    ) -> Result<(), Error<Size>> {
         let icon = filter(source, entry.0);
         let data = icon.to_rgba().into_vec();
 

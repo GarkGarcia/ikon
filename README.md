@@ -13,7 +13,19 @@ interface. It serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)** 
 
 # Overview
 
-An _icon_ consists of a set of _entries_. An _entry_ is simply an image that has a particular size.
+An _icon_ consists of a map between _entries_ and _images_. An _entry_ is simply the _key type_ of
+an _icon_.
+
+For example, _icon_ formats that only differenciate _images_ by their dimensions, such as the `.ico`
+and `.icns` file formats, are maps between _positive integers_ and _image buffers_. On the other
+hand, more complex _icon_ formats, such as _[favicons](https://en.wikipedia.org/wiki/Favicon)_ and
+_[FreeDesktop icon themes](https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html)_
+, are maps _file paths_ and _positive integers_ to _image buffers_.
+
+Note that every _entry_ must be convertible to a _posit integers_, since the dimensions
+of the _images_ contained in an _icon_ are dictated by their associated _entries_. Therefore, all
+_entry types_ are required to implement `AsRef<u32>`.
+
 **IconBaker** simply automates the process of re-scaling pictures and combining them into an _icon_.
 
 Pictures are scaled using resampling filters, which are represented by _functions that take a source_ 

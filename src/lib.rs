@@ -223,10 +223,17 @@ pub trait Icon<E: AsRef<u32>> {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Entry(u32);
+/// An _entry type_ for simple icons that only associate images
+/// with their dimensions. Usefull for icon formats such as the
+/// `.ico` and `.icns` file formats.
+pub struct Size(u32);
 
 #[derive(Clone, Debug, Eq, Hash)]
-pub struct NamedEntry(u32, PathBuf);
+/// An _entry type_ for icon formats that consist of a collection
+/// of files, such as 
+/// _[favicons](https://en.wikipedia.org/wiki/Favicon)_ or
+/// _[FreeDesktop icon themes](https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html)_.
+pub struct FileLabel(u32, PathBuf);
 
 #[derive(Clone)]
 /// A uniun type for raster and vector graphics.
@@ -251,31 +258,31 @@ pub enum Error<E: AsRef<u32>> {
     MismatchedDimensions(u32, (u32, u32)),
 }
 
-impl AsRef<u32> for Entry {
+impl AsRef<u32> for Size {
     fn as_ref(&self) -> &u32 {
         &self.0
     }
 }
 
-impl NamedEntry {
+impl FileLabel {
     /// Creates a `NamedEntry` from a reference to a `Path`.
     /// # Example
     /// ```rust
     /// let entry = NamedEntry::from(32, &"icons/32/icon.png");
     /// ```
     pub fn from<P: AsRef<Path>>(size: u32, path: &P) -> Self {
-        NamedEntry(size, PathBuf::from(path.as_ref()))
+        FileLabel(size, PathBuf::from(path.as_ref()))
     }
 }
 
-impl AsRef<u32> for NamedEntry {
+impl AsRef<u32> for FileLabel {
     fn as_ref(&self) -> &u32 {
         &self.0
     }
 }
 
-impl PartialEq for NamedEntry {
-    fn eq(&self, other: &NamedEntry) -> bool {
+impl PartialEq for FileLabel {
+    fn eq(&self, other: &FileLabel) -> bool {
         self.1 == other.1
     }
 }

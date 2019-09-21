@@ -1,6 +1,6 @@
 extern crate ico;
 
-use crate::{resample, Entry, Error, Icon, SourceImage, STD_CAPACITY};
+use crate::{resample, Size, Error, Icon, SourceImage, STD_CAPACITY};
 use image::DynamicImage;
 use std::{
     fmt::{self, Debug, Formatter},
@@ -18,7 +18,7 @@ pub struct Ico {
     entries: Vec<u32>,
 }
 
-impl Icon<Entry> for Ico {
+impl Icon<Size> for Ico {
     fn new() -> Self {
         Ico {
             icon_dir: ico::IconDir::new(ico::ResourceType::Icon),
@@ -30,8 +30,8 @@ impl Icon<Entry> for Ico {
         &mut self,
         filter: F,
         source: &SourceImage,
-        entry: Entry,
-    ) -> Result<(), Error<Entry>> {
+        entry: Size,
+    ) -> Result<(), Error<Size>> {
         if entry.0 < MIN_ICO_SIZE || entry.0 > MAX_ICO_SIZE {
             return Err(Error::InvalidDimensions(entry.0));
         }

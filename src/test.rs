@@ -1,4 +1,4 @@
-use crate::{icns::*, ico::*, png_sequence::*, resample, FileLabel, Icon, Size, SourceImage};
+use crate::{icns::*, ico::*, png_sequence::*, resample, PngEntry, Icon, Size, SourceImage};
 use image::{png::PNGEncoder, ColorType, GenericImageView};
 use std::{fs::File, io::BufWriter};
 
@@ -91,8 +91,8 @@ fn test_png() {
     let img = SourceImage::open("tests/hydra.png").expect("File not found");
 
     let entries = vec![
-        FileLabel::from(32, &"32/icon.png"),
-        FileLabel::from(64, &"64/icon.png"),
+        PngEntry::from(32, &"32/icon.png"),
+        PngEntry::from(64, &"64/icon.png"),
     ];
 
     if let Err(err) = icon.add_entries(resample::linear, &img, entries) {

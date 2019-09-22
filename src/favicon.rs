@@ -1,7 +1,7 @@
 extern crate image;
 extern crate tar;
 
-use crate::{png_sequence::PngSequence, Error, FileLabel, Icon, SourceImage, STD_CAPACITY};
+use crate::{ico::Ico, png_sequence::PngSequence, Error, Size, PngEntry, Icon, SourceImage, STD_CAPACITY};
 use image::DynamicImage;
 use std::{
     fs::File,
@@ -9,28 +9,60 @@ use std::{
     path::{Path, PathBuf},
 };
 
+const SHORTCUT_SIZES: [Size;3] = [Size(16), Size(32), Size(48)];
+
 /// A collection of entries stored in a single `.tar` file.
 #[derive(Clone, Debug)]
 pub struct FavIcon {
     raw_sequence: PngSequence,
     html_helper: Vec<u8>,
-    ms_tile_color: Option<(u8, u8, u8)>,
+    ms_tile_color: Option<Color>,
+    shortcut_icon: Option<Vec<u8>>
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum FavIconEntry {
     AppleTouchIcon,
     Icon(u32),
-    MsApplicationIcon(u8, u8, u8),
+    MsApplicationIcon(Color),
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Color(u8, u8, u8);
+
 impl FavIcon {
+    pub fn add_shortcut_icon<F: FnMut(&SourceImage, u32) -> DynamicImage>(
+        &mut self,
+        filter: F,
+        source: &SourceImage
+    ) -> Result<(), Error<FavIconEntry>> {
+        if let Some(_) = self.shortcut_icon {
+            return Err(Error::Io(io::Error::from(io::ErrorKind::AlreadyExists)));
+        }
+
+        let mut ico = Ico::new();
+
+        if let Err(err) = ico.add_entries(filter, source, SHORTCUT_SIZES.to_vec()) {
+            match err {
+                Error::AlreadyIncluded(_) | Error::InvalidDimensions(_)
+                    => panic!("This shouldn't happen."),
+                _ => return Err(err.map(|_| unreachable!()))
+            }
+        }
+
+        let mut shortcut = Vec::with_capacity(15_000);
+        ico.write(&mut shortcut)?;
+
+        self.shortcut_icon = Some(shortcut);
+        Ok(())
+    }
+
     #[inline]
     fn append_helper(&mut self, entry: &FavIconEntry) -> io::Result<()> {
         match entry {
             FavIconEntry::AppleTouchIcon => self.append_apple_helper(),
             FavIconEntry::Icon(size) => self.append_icon_helper(*size),
-            FavIconEntry::MsApplicationIcon(r, g, b) => self.append_ms_app_helper(*r, *g, *b),
+            FavIconEntry::MsApplicationIcon(color) => self.append_ms_app_helper(*color),
         }
     }
 
@@ -50,8 +82,8 @@ impl FavIcon {
         )
     }
     #[inline]
-    fn append_ms_app_helper(&mut self, r: u8, g: u8, b: u8) -> io::Result<()> {
-        self.ms_tile_color = Some((r, g, b));
+    fn append_ms_app_helper(&mut self, color: Color) -> io::Result<()> {
+        self.ms_tile_color = Some(color);
 
         write!(
             self.html_helper,
@@ -66,6 +98,7 @@ impl Icon<FavIconEntry> for FavIcon {
             raw_sequence: PngSequence::new(),
             html_helper: Vec::with_capacity(STD_CAPACITY * 90),
             ms_tile_color: None,
+            shortcut_icon: None
         }
     }
 
@@ -75,10 +108,10 @@ impl Icon<FavIconEntry> for FavIcon {
         source: &SourceImage,
         entry: FavIconEntry,
     ) -> Result<(), Error<FavIconEntry>> {
-        let label = FileLabel(*entry.as_ref(), entry.to_path_buff());
+        let label = PngEntry(*entry.as_ref(), entry.to_path_buff());
 
         if let Err(err) = self.raw_sequence.add_entry(filter, source, label) {
-            return Err(file_label_to_favicon_entry_err(err, entry));
+            return Err(err.map(|_| entry));
         }
 
         self.append_helper(&entry).map_err(|err| Error::Io(err))
@@ -89,8 +122,8 @@ impl Icon<FavIconEntry> for FavIcon {
 
         write_data(&mut tar_builder, self.html_helper.as_ref(), "helper.html")?;
 
-        if let Some((r, g, b)) = self.ms_tile_color {
-            let browserconfig = get_ms_browserconfig(r, g, b);
+        if let Some(color) = self.ms_tile_color {
+            let browserconfig = get_ms_browserconfig(color);
             write_data(
                 &mut tar_builder,
                 browserconfig.as_ref(),
@@ -108,8 +141,8 @@ impl Icon<FavIconEntry> for FavIcon {
         } else {
             save_file(self.html_helper.as_ref(), path.as_ref(), "helper.html")?;
 
-            if let Some((r, g, b)) = self.ms_tile_color {
-                let browserconfig = get_ms_browserconfig(r, g, b);
+            if let Some(color) = self.ms_tile_color {
+                let browserconfig = get_ms_browserconfig(color);
 
                 save_file(
                     browserconfig.as_ref(),
@@ -129,7 +162,7 @@ impl FavIconEntry {
         match self {
             FavIconEntry::AppleTouchIcon => PathBuf::from("icons/apple-touch-icon.png"),
             FavIconEntry::Icon(size) => PathBuf::from(format!("icons/favicon-{0}x{0}.png", size)),
-            FavIconEntry::MsApplicationIcon(_, _, _) => PathBuf::from("icons/mstile-150x150.png"),
+            FavIconEntry::MsApplicationIcon(_) => PathBuf::from("icons/mstile-150x150.png"),
         }
     }
 }
@@ -139,7 +172,7 @@ impl AsRef<u32> for FavIconEntry {
         match self {
             FavIconEntry::AppleTouchIcon => &180,
             FavIconEntry::Icon(size) => size,
-            FavIconEntry::MsApplicationIcon(_, _, _) => &150,
+            FavIconEntry::MsApplicationIcon(_) => &150,
         }
     }
 }
@@ -162,7 +195,12 @@ fn write_data<W: Write>(
 }
 
 /// Helper function to write a buffer to a location on disk.
-fn save_file(data: &[u8], base_path: &Path, path: &str) -> io::Result<()> {
+fn save_file(
+    data: &[u8], 
+    base_path: &Path,
+    path: &str
+) -> io::Result<()> {
+
     let path = base_path.join(path);
     let mut file = File::create(path)?;
 
@@ -170,23 +208,9 @@ fn save_file(data: &[u8], base_path: &Path, path: &str) -> io::Result<()> {
 }
 
 #[inline]
-// Converts a `Error<FileLabel>` to a `Error<FavIconEntry>`
-fn file_label_to_favicon_entry_err(
-    err: Error<FileLabel>,
-    entry: FavIconEntry,
-) -> Error<FavIconEntry> {
-    match err {
-        Error::AlreadyIncluded(_) => Error::AlreadyIncluded(entry),
-        Error::InvalidDimensions(size) => Error::InvalidDimensions(size),
-        Error::Io(err) => Error::Io(err),
-        Error::MismatchedDimensions(e, g) => Error::MismatchedDimensions(e, g),
-    }
-}
-
-#[inline]
-fn get_ms_browserconfig(r: u8, g: u8, b: u8) -> Vec<u8> {
+fn get_ms_browserconfig(color: Color) -> Vec<u8> {
     format!(
-        "<?xml version=\"1.0\" encoding=\"utf-8\"?>
+"<?xml version=\"1.0\" encoding=\"utf-8\"?>
 <browserconfig>
     <msapplication>
         <tile>
@@ -195,7 +219,7 @@ fn get_ms_browserconfig(r: u8, g: u8, b: u8) -> Vec<u8> {
         </tile>
     </msapplication>
 </browserconfig>",
-        r, g, b
+        color.0, color.1, color.2
     )
     .into_bytes()
 }

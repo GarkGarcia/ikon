@@ -216,6 +216,10 @@ pub trait Icon<E: AsRef<u32>> {
     }
 }
 
+pub trait Entry {
+    fn dimensions(&self) -> u32;
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 /// An _entry type_ for simple icons that only associate images
 /// with their dimensions. Usefull for icon formats such as the
@@ -223,11 +227,10 @@ pub trait Icon<E: AsRef<u32>> {
 pub struct Size(u32);
 
 #[derive(Clone, Debug, Eq, Hash)]
-/// An _entry type_ for icon formats that consist of a collection
-/// of files, such as 
-/// _[favicons](https://en.wikipedia.org/wiki/Favicon)_ or
+/// An _entry type_ for _icon formats_ that consist of a
+/// collection of files, such as _png sequences_ or
 /// _[FreeDesktop icon themes](https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html)_.
-pub struct FileLabel(u32, PathBuf);
+pub struct PngEntry(u32, PathBuf);
 
 #[derive(Clone)]
 /// A uniun type for raster and vector graphics.
@@ -258,25 +261,25 @@ impl AsRef<u32> for Size {
     }
 }
 
-impl FileLabel {
+impl PngEntry {
     /// Creates a `NamedEntry` from a reference to a `Path`.
     /// # Example
     /// ```rust
     /// let entry = NamedEntry::from(32, &"icons/32/icon.png");
     /// ```
     pub fn from<P: AsRef<Path>>(size: u32, path: &P) -> Self {
-        FileLabel(size, PathBuf::from(path.as_ref()))
+        PngEntry(size, PathBuf::from(path.as_ref()))
     }
 }
 
-impl AsRef<u32> for FileLabel {
+impl AsRef<u32> for PngEntry {
     fn as_ref(&self) -> &u32 {
         &self.0
     }
 }
 
-impl PartialEq for FileLabel {
-    fn eq(&self, other: &FileLabel) -> bool {
+impl PartialEq for PngEntry {
+    fn eq(&self, other: &PngEntry) -> bool {
         self.1 == other.1
     }
 }
@@ -337,6 +340,21 @@ impl From<Tree> for SourceImage {
 impl From<DynamicImage> for SourceImage {
     fn from(bit: DynamicImage) -> Self {
         SourceImage::Raster(bit)
+    }
+}
+
+impl<E: AsRef<u32>> Error<E> {
+    /// Converts `self` to a `Error<T>` using `f`.
+    pub fn map<T: AsRef<u32>, F: FnOnce(E) -> T>(
+        self,
+        f: F
+    ) -> Error<T> {
+        match self {
+            Error::AlreadyIncluded(e) => Error::AlreadyIncluded(f(e)),
+            Error::InvalidDimensions(size) => Error::InvalidDimensions(size),
+            Error::Io(err) => Error::Io(err),
+            Error::MismatchedDimensions(e, g) => Error::MismatchedDimensions(e, g),
+        }
     }
 }
 

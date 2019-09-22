@@ -1,40 +1,63 @@
 extern crate image;
 extern crate tar;
 
-use crate::{ico::Ico, png_sequence::PngSequence, Error, Size, PngEntry, Icon, SourceImage, STD_CAPACITY};
+use crate::{
+    ico::Ico, png_sequence::PngSequence, Error, Icon, PngEntry, Size, SourceImage, STD_CAPACITY,
+};
 use image::DynamicImage;
+use resvg::usvg::{Tree, XmlOptions};
 use std::{
     fs::File,
     io::{self, Write},
     path::{Path, PathBuf},
 };
 
-const SHORTCUT_SIZES: [Size;3] = [Size(16), Size(32), Size(48)];
+const SHORTCUT_SIZES: [Size; 3] = [Size(16), Size(32), Size(48)];
 
-/// A collection of entries stored in a single `.tar` file.
 #[derive(Clone, Debug)]
+/// A comprehencive _favicon_ builder.
 pub struct FavIcon {
     raw_sequence: PngSequence,
     html_helper: Vec<u8>,
     ms_tile_color: Option<Color>,
-    shortcut_icon: Option<Vec<u8>>
+    shortcut_icon: Option<Vec<u8>>,
+    safari_pinned_tab_icon: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+/// The _entry type_ for `FavIcon`.
 pub enum FavIconEntry {
+    /// Variant for 
+    /// _[Safari web-app icons](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html)_.
     AppleTouchIcon,
+    /// Variant for generic entries.
     Icon(u32),
+    /// Variant for configuring
+    /// _[IE app icons](https://docs.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/dn320426(v=vs.85))_.
     MsApplicationIcon(Color),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+/// A simple representation of an RGB color.
 pub struct Color(u8, u8, u8);
 
 impl FavIcon {
+    /// Adds an entry for a 
+    /// _[shortcut icon](https://developer.mozilla.org/en-US/docs/Learn/HTML/Introduction_to_HTML/The_head_metadata_in_HTML#Adding_custom_icons_to_your_site)_
+    /// , creating a `.ico` file containing a _16x16_ entry, a _32x32_ entry and
+    /// a _48x48_ entry.
+    /// 
+    /// # Return Value
+    /// 
+    /// * Returns `Err(Error::Io(io::Error::from(io::ErrorKind::AlreadyExists)))`
+    ///   if the icon already contains a _shortcut icon_.
+    /// * Returns `Err(_)` if the construction of the `.ico` file fails or if the
+    ///   icon's html helper can't be updated.
+    /// * Returns `Ok(())` otherwise.
     pub fn add_shortcut_icon<F: FnMut(&SourceImage, u32) -> DynamicImage>(
         &mut self,
         filter: F,
-        source: &SourceImage
+        source: &SourceImage,
     ) -> Result<(), Error<FavIconEntry>> {
         if let Some(_) = self.shortcut_icon {
             return Err(Error::Io(io::Error::from(io::ErrorKind::AlreadyExists)));
@@ -44,9 +67,8 @@ impl FavIcon {
 
         if let Err(err) = ico.add_entries(filter, source, SHORTCUT_SIZES.to_vec()) {
             match err {
-                Error::AlreadyIncluded(_) | Error::InvalidDimensions(_)
-                    => panic!("This shouldn't happen."),
-                _ => return Err(err.map(|_| unreachable!()))
+                Error::AlreadyIncluded(_) => panic!("This shouldn't happen."),
+                _ => return Err(err.map(|_| unreachable!())),
             }
         }
 
@@ -54,7 +76,38 @@ impl FavIcon {
         ico.write(&mut shortcut)?;
 
         self.shortcut_icon = Some(shortcut);
-        Ok(())
+        write!(
+            self.html_helper,
+            "\n<link rel=\"shortcut icon\" type=\"image/x-icon\" href=\"icons/favicon.ico\"/>"
+        )
+        .map_err(|err| Error::Io(err))
+    }
+
+    /// Add an entry for a 
+    /// _[Safari pinned tab icon](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/pinnedTabs/pinnedTabs.html)_.
+    /// 
+    /// # Return Value
+    /// 
+    /// * Returns `Err(Error::Io(io::Error::from(io::ErrorKind::AlreadyExists)))`
+    ///   if the icon already contains a _Safari pinned tab icon_.
+    /// * Returns `Err(_)` if the icon's html helper can't be updated.
+    /// * Returns `Ok(())` otherwise.
+    pub fn add_safari_pinned_tab_icon(
+        &mut self,
+        source: &Tree,
+        color: &Color,
+    ) -> Result<(), Error<FavIconEntry>> {
+        if let Some(_) = self.safari_pinned_tab_icon {
+            return Err(Error::Io(io::Error::from(io::ErrorKind::AlreadyExists)));
+        }
+
+        self.safari_pinned_tab_icon = Some(source.to_string(XmlOptions::default()));
+        write!(
+            self.html_helper,
+            "\n<link rel=\"mask-icon\" href=\"icons/safari-pinned-tab.svg\" color=\"{}\"/>",
+            color.to_hex()
+        )
+        .map_err(|err| Error::Io(err))
     }
 
     #[inline]
@@ -98,7 +151,8 @@ impl Icon<FavIconEntry> for FavIcon {
             raw_sequence: PngSequence::new(),
             html_helper: Vec::with_capacity(STD_CAPACITY * 90),
             ms_tile_color: None,
-            shortcut_icon: None
+            shortcut_icon: None,
+            safari_pinned_tab_icon: None,
         }
     }
 
@@ -127,7 +181,19 @@ impl Icon<FavIconEntry> for FavIcon {
             write_data(
                 &mut tar_builder,
                 browserconfig.as_ref(),
-                "icons/browserconfig.xml"
+                "icons/browserconfig.xml",
+            )?;
+        }
+
+        if let Some(buff) = &self.shortcut_icon {
+            write_data(&mut tar_builder, buff.as_ref(), "icons/favicon.ico")?;
+        }
+
+        if let Some(svg) = &self.safari_pinned_tab_icon {
+            write_data(
+                &mut tar_builder,
+                svg.clone().into_bytes().as_ref(),
+                "icons/safari-pinned-tab.svg"
             )?;
         }
 
@@ -147,7 +213,19 @@ impl Icon<FavIconEntry> for FavIcon {
                 save_file(
                     browserconfig.as_ref(),
                     path.as_ref(),
-                    "icons/browserconfig.xml"
+                    "icons/browserconfig.xml",
+                )?;
+            }
+
+            if let Some(buff) = &self.shortcut_icon {
+                save_file(buff.as_ref(), path.as_ref(), "icons/favicon.ico")?;
+            }
+
+            if let Some(svg) = &self.safari_pinned_tab_icon {
+                save_file(
+                    svg.clone().into_bytes().as_ref(),
+                    path.as_ref(),
+                    "icons/safari-pinned-tab.svg"
                 )?;
             }
 
@@ -177,30 +255,24 @@ impl AsRef<u32> for FavIconEntry {
     }
 }
 
+impl Color {
+    /// Display the color as _css-styled_ hex `String`.
+    fn to_hex(&self) -> String {
+        format!("#{:02x}{:02x}{:02x}", self.0, self.1, self.2)
+    }
+}
+
 /// Helper function to append a buffer to a `.tar` file
-fn write_data<W: Write>(
-    builder: &mut tar::Builder<W>,
-    data: &[u8],
-    path: &str
-) -> io::Result<()> {
+fn write_data<W: Write>(builder: &mut tar::Builder<W>, data: &[u8], path: &str) -> io::Result<()> {
     let mut header = tar::Header::new_gnu();
     header.set_size(data.len() as u64);
     header.set_cksum();
 
-    builder.append_data::<&str, &[u8]>(
-        &mut header,
-        path,
-        data,
-    )
+    builder.append_data::<&str, &[u8]>(&mut header, path, data)
 }
 
 /// Helper function to write a buffer to a location on disk.
-fn save_file(
-    data: &[u8], 
-    base_path: &Path,
-    path: &str
-) -> io::Result<()> {
-
+fn save_file(data: &[u8], base_path: &Path, path: &str) -> io::Result<()> {
     let path = base_path.join(path);
     let mut file = File::create(path)?;
 
@@ -210,16 +282,16 @@ fn save_file(
 #[inline]
 fn get_ms_browserconfig(color: Color) -> Vec<u8> {
     format!(
-"<?xml version=\"1.0\" encoding=\"utf-8\"?>
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>
 <browserconfig>
     <msapplication>
         <tile>
             <square150x150logo src=\"mstile-150x150.png\"/>
-            <TileColor>#{:02x}{:02x}{:02x}</TileColor>
+            <TileColor>#{}</TileColor>
         </tile>
     </msapplication>
 </browserconfig>",
-        color.0, color.1, color.2
+        color.to_hex()
     )
     .into_bytes()
 }

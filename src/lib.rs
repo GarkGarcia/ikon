@@ -216,10 +216,6 @@ pub trait Icon<E: AsRef<u32>> {
     }
 }
 
-pub trait Entry {
-    fn dimensions(&self) -> u32;
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 /// An _entry type_ for simple icons that only associate images
 /// with their dimensions. Usefull for icon formats such as the
@@ -228,7 +224,7 @@ pub struct Size(u32);
 
 #[derive(Clone, Debug, Eq, Hash)]
 /// An _entry type_ for _icon formats_ that consist of a
-/// collection of files, such as _png sequences_ or
+/// collectio of files, such as _png sequences_ or
 /// _[FreeDesktop icon themes](https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html)_.
 pub struct PngEntry(u32, PathBuf);
 

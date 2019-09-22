@@ -11,15 +11,12 @@ use std::{
 const MIN_ICO_SIZE: u32 = 1;
 const MAX_ICO_SIZE: u32 = 256;
 
-#[derive(Clone)]
 /// An ecoder for the `.ico` file format.
+#[derive(Clone)]
 pub struct Ico {
     icon_dir: ico::IconDir,
     entries: Vec<u32>,
 }
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct IcoEntry(u8);
 
 impl Icon<Size> for Ico {
     fn new() -> Self {

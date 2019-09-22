@@ -18,4 +18,4 @@ tar = "0.4.26"
 ico = "0.1.0"
 icns = "0.3.0"
 image = "0.22.1"
-resvg = { version = "0.7.0", features = ["raqote-backend"] }
+resvg = { version = "0.8.0", features = ["raqote-backend"] }

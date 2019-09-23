@@ -1,6 +1,8 @@
+//! Structs for encoding `.ico` files.
+
 extern crate ico;
 
-use crate::{resample, Size, Error, Icon, SourceImage, STD_CAPACITY};
+use crate::{resample, SizeKey, Error, Icon, SourceImage, STD_CAPACITY};
 use image::DynamicImage;
 use std::{
     fmt::{self, Debug, Formatter},
@@ -15,14 +17,14 @@ const MAX_ICO_SIZE: u32 = 256;
 #[derive(Clone)]
 pub struct Ico {
     icon_dir: ico::IconDir,
-    entries: Vec<u32>,
+    keys: Vec<u32>,
 }
 
-impl Icon<Size> for Ico {
+impl Icon<SizeKey> for Ico {
     fn new() -> Self {
         Ico {
             icon_dir: ico::IconDir::new(ico::ResourceType::Icon),
-            entries: Vec::with_capacity(STD_CAPACITY),
+            keys: Vec::with_capacity(STD_CAPACITY),
         }
     }
 
@@ -30,19 +32,19 @@ impl Icon<Size> for Ico {
         &mut self,
         filter: F,
         source: &SourceImage,
-        entry: Size,
-    ) -> Result<(), Error<Size>> {
-        if entry.0 < MIN_ICO_SIZE || entry.0 > MAX_ICO_SIZE {
-            return Err(Error::InvalidDimensions(entry.0));
+        key: SizeKey,
+    ) -> Result<(), Error<SizeKey>> {
+        if key.0 < MIN_ICO_SIZE || key.0 > MAX_ICO_SIZE {
+            return Err(Error::InvalidDimensions(key.0));
         }
 
-        if self.entries.contains(&entry.0) {
-            return Err(Error::AlreadyIncluded(entry));
+        if self.keys.contains(&key.0) {
+            return Err(Error::AlreadyIncluded(key));
         }
 
-        let icon = resample::safe_filter(filter, source, entry.0)?;
+        let icon = resample::safe_filter(filter, source, key.0)?;
         let data = icon.to_rgba().into_vec();
-        let image = ico::IconImage::from_rgba_data(entry.0, entry.0, data);
+        let image = ico::IconImage::from_rgba_data(key.0, key.0, data);
 
         let entry = ico::IconDirEntry::encode(&image)?;
         self.icon_dir.add_entry(entry);

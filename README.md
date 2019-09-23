@@ -6,27 +6,38 @@
 ![Downloads](https://img.shields.io/crates/d/icon_baker)
 [![License](https://img.shields.io/github/license/GarkGarcia/icon_baker)](https://github.com/GarkGarcia/icon_baker/blob/master/LICENSE)
 
-A simple solution for encoding common icon file-formats, such as `.ico` and `.icns`. 
+A simple solution for encoding common icon file-formats, such as `.ico`, `.icns` and _favicon_. 
 
-This crate is mostly a wrapper for other libraries, unifying existing APIs into a single, cohesive 
+This crate is mostly a wrapper for other libraries, unifying existing APIs into a single, cohesive
 interface. It serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)** internal library.
 
 # Overview
 
-An _icon_ consists of a map between _entries_ and _images_. An _entry_ is simply the _key type_ of
-an _icon_.
+An _icon_ consists of a map between _keys_ and _images_. An _entry_ is a _key-value_ pair contained
+in an _icon_.
 
-For example, _icon_ formats that only differenciate _images_ by their dimensions, such as the `.ico`
-and `.icns` file formats, are maps between _positive integers_ and _image buffers_. On the other
-hand, more complex _icon_ formats, such as _[favicons](https://en.wikipedia.org/wiki/Favicon)_ and
+**IconBaker** simply automates the process of re-scaling _images_, creating _entries_ and combining
+them into an _icon_.
+
+## Keys
+
+Each _icon_ format is associated with a particular _key type_, which determines how
+_entries_ are labeled. Each _key_ can only be associated with a single _image_.
+
+For example, _icon_ formats that only differentiate _entries_ by the dimensions of their associated
+_images_ are labeled by _positive integers_, such as the `.ico` and `.icns` file-formats.
+
+On the other hand, _icon_ formats that distinguish their _entries_ by 
+_[path](https://en.wikipedia.org/wiki/Path_%28computing%29)_, such as _png sequeces_ and
 _[FreeDesktop icon themes](https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html)_
-, are maps _file paths_ and _positive integers_ to _image buffers_.
+, are labeled by _path_.
 
-Note that every _entry_ must be convertible to a _posit integers_, since the dimensions
-of the _images_ contained in an _icon_ are dictated by their associated _entries_. Therefore, all
-_entry types_ are required to implement `AsRef<u32>`.
+Note that, since the dimensions
+of the _images_ contained in an _entry_ are dictated by their associated _entries_, every _key_
+must be convertible to a _positive integers_. Therefore, all _key types_ are required to implement
+`AsRef<u32>`.
 
-**IconBaker** simply automates the process of re-scaling pictures and combining them into an _icon_.
+## Resampling
 
 Pictures are scaled using resampling filters, which are represented by _functions that take a source_ 
 _image and a size and return a re-scaled image_.
@@ -40,10 +51,9 @@ filters are provided in the
 ## General Usage
 
 ```rust
-use icon_baker::{Ico, SourceImage, Icon};
-use icon_baker::Error as IconError;
+use icon_baker::{Ico, SourceImage, Icon, Error};
  
-fn example() -> Result<(), IconError> {
+fn example() -> Result<(), Error> {
     let icon = Ico::new();
 
     match SourceImage::from_path("image.svg") {
@@ -56,7 +66,7 @@ fn example() -> Result<(), IconError> {
 ## Writing to a File
 
 ```rust
-use icon_baker::*;
+use icon_baker::png_sequence::PngSequence;
 use std::{io, fs::File};
  
 fn example() -> io::Result<()> {
@@ -73,12 +83,13 @@ fn example() -> io::Result<()> {
 
 ## Icon Formats
 
-This are the output formats **IconBaker** nativally supports. Be aware that custum output types can 
+These are the output formats **IconBaker** natively supports. Be aware that custom output types can 
 be created using the [`Icon`](https://docs.rs/icon_baker/2.2.0/icon_baker/trait.Icon.html) trait.
 
 * `ico`
 * `icns`
 * `png` sequence (`tar`)
+* _favicon_
 
 ### Icns Support
 

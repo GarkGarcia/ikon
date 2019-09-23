@@ -1,8 +1,10 @@
+//! Structs for encoding _[favicons](https://en.wikipedia.org/wiki/Favicon)_.
+
 extern crate image;
 extern crate tar;
 
 use crate::{
-    png_sequence::PngSequence, Error, Icon, PngEntry, SourceImage, STD_CAPACITY
+    png_sequence::PngSequence, Error, Icon, PathKey, SourceImage, STD_CAPACITY
 };
 use image::DynamicImage;
 use std::{
@@ -20,14 +22,14 @@ macro_rules! path {
 
 #[derive(Clone)]
 /// A comprehencive _favicon_ builder.
-pub struct FavIcon {
+pub struct Favicon {
     internal: PngSequence,
-    entries: Vec<FavIconKey>
+    keys: Vec<FaviconKey>
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord)]
 /// The _key type_ for `FavIcon`.
-pub enum FavIconKey {
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord)]
+pub enum FaviconKey {
     /// Variant for 
     /// _[Apple touch icons](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html)_.
     AppleTouchIcon(u32),
@@ -35,11 +37,11 @@ pub enum FavIconKey {
     Icon(u32),
 }
 
-impl FavIcon {
+impl Favicon {
     fn get_html_helper(&self) -> io::Result<Vec<u8>> {
-        let mut helper = Vec::with_capacity(self.entries.len() * 90);
+        let mut helper = Vec::with_capacity(self.keys.len() * 90);
 
-        for entry in &self.entries {
+        for entry in &self.keys {
             write!(
                 helper,
                 "<link rel=\"{0}\" type=\"image/png\" sizes=\"{1}x{1}\" href=\"{2}\">\n",
@@ -51,11 +53,11 @@ impl FavIcon {
     }
 }
 
-impl Icon<FavIconKey> for FavIcon {
+impl Icon<FaviconKey> for Favicon {
     fn new() -> Self {
-        FavIcon {
+        Favicon {
             internal: PngSequence::new(),
-            entries: Vec::with_capacity(STD_CAPACITY)
+            keys: Vec::with_capacity(STD_CAPACITY)
         }
     }
 
@@ -63,16 +65,16 @@ impl Icon<FavIconKey> for FavIcon {
         &mut self,
         filter: F,
         source: &SourceImage,
-        entry: FavIconKey,
-    ) -> Result<(), Error<FavIconKey>> {
-        let path = entry.to_path_buff();
-        let png_entry = PngEntry(*entry.as_ref(), path);
+        key: FaviconKey,
+    ) -> Result<(), Error<FaviconKey>> {
+        let path = key.to_path_buff();
+        let png_entry = PathKey(*key.as_ref(), path);
 
         if let Err(err) = self.internal.add_entry(filter, source, png_entry) {
-            Err(err.map(|_| entry))
+            Err(err.map(|_| key))
         } else {
-            let _ = self.entries.push(entry);
-            self.entries.sort();
+            let _ = self.keys.push(key);
+            self.keys.sort();
             Ok(())
         }
     }
@@ -98,38 +100,38 @@ impl Icon<FavIconKey> for FavIcon {
     }
 }
 
-impl FavIconKey {
+impl FaviconKey {
     #[inline]
     fn rel(&self) -> &str {
         match self {
-            FavIconKey::AppleTouchIcon(_) => "apple-touch-icon",
-            FavIconKey::Icon(_) => "icon"
+            FaviconKey::AppleTouchIcon(_) => "apple-touch-icon",
+            FaviconKey::Icon(_) => "icon"
         }
     }
 
     #[inline]
     fn to_path_buff(self) -> PathBuf {
         match self {
-            FavIconKey::AppleTouchIcon(size) => path!("icons/apple-touch-{0}x{0}-precomposed.png", size),
-            FavIconKey::Icon(size) => path!("icons/favicon-{0}x{0}.png", size),
+            FaviconKey::AppleTouchIcon(size) => path!("icons/apple-touch-{0}x{0}-precomposed.png", size),
+            FaviconKey::Icon(size) => path!("icons/favicon-{0}x{0}.png", size),
         }
     }
 }
 
-impl AsRef<u32> for FavIconKey {
+impl AsRef<u32> for FaviconKey {
     fn as_ref(&self) -> &u32 {
         match self {
-            FavIconKey::AppleTouchIcon(size) | FavIconKey::Icon(size) => size
+            FaviconKey::AppleTouchIcon(size) | FaviconKey::Icon(size) => size
         }
     }
 }
 
-impl PartialOrd for FavIconKey {
+impl PartialOrd for FaviconKey {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self.as_ref().cmp(self.as_ref()) {
             Ordering::Equal => match (self, other) {
-                (FavIconKey::AppleTouchIcon(_), FavIconKey::Icon(_)) => Some(Ordering::Greater),
-                (FavIconKey::Icon(_), FavIconKey::AppleTouchIcon(_)) => Some(Ordering::Less),
+                (FaviconKey::AppleTouchIcon(_), FaviconKey::Icon(_)) => Some(Ordering::Greater),
+                (FaviconKey::Icon(_), FaviconKey::AppleTouchIcon(_)) => Some(Ordering::Less),
                 _ => Some(Ordering::Equal)
             },
             ord => Some(ord)

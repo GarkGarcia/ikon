@@ -1,4 +1,4 @@
-use crate::{icns::*, ico::*, png_sequence::*, resample, PngEntry, Icon, Size, SourceImage};
+use crate::{icns::*, ico::*, png_sequence::*, resample, PathKey, Icon, SizeKey, SourceImage};
 use image::{png::PNGEncoder, ColorType, GenericImageView};
 use std::{fs::File, io::BufWriter};
 
@@ -42,15 +42,15 @@ fn test_ico() {
     let mut icon = Ico::new();
     let img = SourceImage::open("tests/hydra.png").expect("File not found");
 
-    if let Err(err) = icon.add_entries(resample::nearest, &img, vec![Size(32), Size(64)]) {
+    if let Err(err) = icon.add_entries(resample::nearest, &img, vec![SizeKey(32), SizeKey(64)]) {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.add_entry(resample::nearest, &img, Size(128)) {
+    if let Err(err) = icon.add_entry(resample::nearest, &img, SizeKey(128)) {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.add_entry(resample::nearest, &img, Size(32)) {
+    if let Err(err) = icon.add_entry(resample::nearest, &img, SizeKey(32)) {
         panic!("{:?}", err);
     }
 
@@ -66,15 +66,15 @@ fn test_icns() {
     let mut icon = Icns::new();
     let img = SourceImage::open("tests/hydra.png").expect("File not found");
 
-    if let Err(err) = icon.add_entries(resample::nearest, &img, vec![Size(32), Size(64)]) {
+    if let Err(err) = icon.add_entries(resample::nearest, &img, vec![SizeKey(32), SizeKey(64)]) {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.add_entry(resample::nearest, &img, Size(128)) {
+    if let Err(err) = icon.add_entry(resample::nearest, &img, SizeKey(128)) {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.add_entry(resample::nearest, &img, Size(32)) {
+    if let Err(err) = icon.add_entry(resample::nearest, &img, SizeKey(32)) {
         panic!("{:?}", err);
     }
 
@@ -91,8 +91,8 @@ fn test_png() {
     let img = SourceImage::open("tests/hydra.png").expect("File not found");
 
     let entries = vec![
-        PngEntry::from(32, &"32/icon.png"),
-        PngEntry::from(64, &"64/icon.png"),
+        PathKey::from(32, &"32/icon.png"),
+        PathKey::from(64, &"64/icon.png"),
     ];
 
     if let Err(err) = icon.add_entries(resample::linear, &img, entries) {

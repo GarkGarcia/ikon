@@ -1,7 +1,9 @@
+//! Structs for encoding _png sequences_ (series of `.png` files indexed by _path_).
+
 extern crate image;
 extern crate tar;
 
-use crate::{resample, Icon, PngEntry, SourceImage, Error, STD_CAPACITY};
+use crate::{resample, Icon, PathKey, SourceImage, Error, STD_CAPACITY};
 use image::{png::PNGEncoder, ColorType, DynamicImage};
 use std::{
     collections::HashMap,
@@ -36,7 +38,7 @@ impl PngSequence {
     }
 }
 
-impl Icon<PngEntry> for PngSequence {
+impl Icon<PathKey> for PngSequence {
     fn new() -> Self {
         PngSequence {
             entries: HashMap::with_capacity(STD_CAPACITY),
@@ -47,25 +49,25 @@ impl Icon<PngEntry> for PngSequence {
         &mut self,
         filter: F,
         source: &SourceImage,
-        entry: PngEntry,
-    ) -> Result<(), Error<PngEntry>> {
-        if entry.0 < MIN_PNG_SIZE {
-            return Err(Error::InvalidDimensions(entry.0));
+        key: PathKey,
+    ) -> Result<(), Error<PathKey>> {
+        if key.0 < MIN_PNG_SIZE {
+            return Err(Error::InvalidDimensions(key.0));
         }
 
-        if self.entries.contains_key(&entry.1) {
-            return Err(Error::AlreadyIncluded(entry));
+        if self.entries.contains_key(&key.1) {
+            return Err(Error::AlreadyIncluded(key));
         }
 
-        let icon = resample::safe_filter(filter, source, entry.0)?;
+        let icon = resample::safe_filter(filter, source, key.0)?;
         let data = icon.to_rgba().into_raw();
         
         // Encode the pixel data as PNG and store it in a Vec<u8>
         let mut image = Vec::with_capacity(data.len());
         let encoder = PNGEncoder::new(&mut image);
-        encoder.encode(&data, entry.0, entry.0, ColorType::RGBA(8))?;
+        encoder.encode(&data, key.0, key.0, ColorType::RGBA(8))?;
 
-        match self.entries.insert(entry.1, image) {
+        match self.entries.insert(key.1, image) {
             Some(img) => panic!("Sanity test failed: {:?} is already included.", img),
             None => Ok(()),
         }

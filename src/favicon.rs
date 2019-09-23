@@ -102,9 +102,10 @@ impl Icon<FaviconKey> for Favicon {
 
 impl FaviconKey {
     #[inline]
-    fn rel(&self) -> &str {
+    /// Returns the _rel_ 
+    pub fn rel(&self) -> &str {
         match self {
-            FaviconKey::AppleTouchIcon(_) => "apple-touch-icon",
+            FaviconKey::AppleTouchIcon(_) => "apple-touch-icon-precomposed",
             FaviconKey::Icon(_) => "icon"
         }
     }
@@ -112,8 +113,8 @@ impl FaviconKey {
     #[inline]
     fn to_path_buff(self) -> PathBuf {
         match self {
-            FaviconKey::AppleTouchIcon(size) => path!("icons/apple-touch-{0}x{0}-precomposed.png", size),
-            FaviconKey::Icon(size) => path!("icons/favicon-{0}x{0}.png", size),
+            FaviconKey::AppleTouchIcon(size) => path!("icons/apple-touch-{}.png", size),
+            FaviconKey::Icon(size) => path!("icons/favicon-{}.png", size),
         }
     }
 }

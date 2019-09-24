@@ -15,7 +15,9 @@ pub struct Icns {
     keys: Vec<u32>,
 }
 
-impl Icon<SizeKey> for Icns {
+impl Icon for Icns {
+    type Key = SizeKey;
+
     fn new() -> Self {
         Icns {
             icon_family: icns::IconFamily::new(),
@@ -27,8 +29,8 @@ impl Icon<SizeKey> for Icns {
         &mut self,
         mut filter: F,
         source: &SourceImage,
-        key: SizeKey
-    ) -> Result<(), Error<SizeKey>> {
+        key: Self::Key
+    ) -> Result<(), Error<Self::Key>> {
         let icon = filter(source, key.0);
         let data = icon.to_rgba().into_vec();
 

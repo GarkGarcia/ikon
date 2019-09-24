@@ -99,7 +99,9 @@ const INVALID_DIM_ERR: &str =
     "a resampling filter returned an image of dimensions other than the ones specified by it's arguments";
 
 /// A generic representation of an icon encoder.
-pub trait Icon<K: AsRef<u32>> {
+pub trait Icon where Self::Key: AsRef<u32> {
+    type Key;
+
     /// Creates a new icon.
     ///
     /// # Example
@@ -145,8 +147,8 @@ pub trait Icon<K: AsRef<u32>> {
         &mut self,
         filter: F,
         source: &SourceImage,
-        key: K,
-    ) -> Result<(), Error<K>>;
+        key: Self::Key,
+    ) -> Result<(), Error<Self::Key>>;
 
     /// Adds a series of entries to the icon.
     ///
@@ -186,12 +188,12 @@ pub trait Icon<K: AsRef<u32>> {
     ///     }
     /// }
     /// ```
-    fn add_entries<F: FnMut(&SourceImage, u32) -> DynamicImage, I: IntoIterator<Item = K>>(
+    fn add_entries<F: FnMut(&SourceImage, u32) -> DynamicImage, I: IntoIterator<Item = Self::Key>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
         keys: I,
-    ) -> Result<(), Error<K>> {
+    ) -> Result<(), Error<Self::Key>> {
         for key in keys {
             self.add_entry(|src, size| filter(src, size), source, key)?;
         }

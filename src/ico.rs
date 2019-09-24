@@ -20,7 +20,9 @@ pub struct Ico {
     keys: Vec<u32>,
 }
 
-impl Icon<SizeKey> for Ico {
+impl Icon for Ico {
+    type Key = SizeKey;
+
     fn new() -> Self {
         Ico {
             icon_dir: ico::IconDir::new(ico::ResourceType::Icon),
@@ -32,8 +34,8 @@ impl Icon<SizeKey> for Ico {
         &mut self,
         filter: F,
         source: &SourceImage,
-        key: SizeKey,
-    ) -> Result<(), Error<SizeKey>> {
+        key: Self::Key,
+    ) -> Result<(), Error<Self::Key>> {
         if key.0 < MIN_ICO_SIZE || key.0 > MAX_ICO_SIZE {
             return Err(Error::InvalidDimensions(key.0));
         }

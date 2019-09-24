@@ -38,7 +38,9 @@ impl PngSequence {
     }
 }
 
-impl Icon<PathKey> for PngSequence {
+impl Icon for PngSequence {
+    type Key = PathKey;
+
     fn new() -> Self {
         PngSequence {
             entries: HashMap::with_capacity(STD_CAPACITY),
@@ -49,8 +51,8 @@ impl Icon<PathKey> for PngSequence {
         &mut self,
         filter: F,
         source: &SourceImage,
-        key: PathKey,
-    ) -> Result<(), Error<PathKey>> {
+        key: Self::Key,
+    ) -> Result<(), Error<Self::Key>> {
         if key.0 < MIN_PNG_SIZE {
             return Err(Error::InvalidDimensions(key.0));
         }

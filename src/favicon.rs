@@ -53,7 +53,9 @@ impl Favicon {
     }
 }
 
-impl Icon<FaviconKey> for Favicon {
+impl Icon for Favicon {
+    type Key = FaviconKey;
+
     fn new() -> Self {
         Favicon {
             internal: PngSequence::new(),
@@ -65,8 +67,8 @@ impl Icon<FaviconKey> for Favicon {
         &mut self,
         filter: F,
         source: &SourceImage,
-        key: FaviconKey,
-    ) -> Result<(), Error<FaviconKey>> {
+        key: Self::Key,
+    ) -> Result<(), Error<Self::Key>> {
         let path = key.to_path_buff();
         let png_entry = PathKey(*key.as_ref(), path);
 

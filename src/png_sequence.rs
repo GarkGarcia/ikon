@@ -3,16 +3,15 @@
 extern crate image;
 extern crate tar;
 
-use crate::{resample, Error, Icon, PathKey, SourceImage, STD_CAPACITY};
+use crate::{resample, AsSize, Error, Icon, SourceImage, STD_CAPACITY};
 use image::{png::PNGEncoder, ColorType, DynamicImage};
 use std::{
     collections::HashMap,
     fs::File,
     io::{self, Write},
     path::{Path, PathBuf},
+    num::NonZeroU32
 };
-
-const MIN_PNG_SIZE: u32 = 1;
 
 /// A collection of entries stored in a single `.tar` file.
 #[derive(Clone, Debug)]
@@ -20,8 +19,14 @@ pub struct PngSequence {
     entries: HashMap<PathBuf, Vec<u8>>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PngKey {
+    size: NonZeroU32,
+    path: PathBuf
+}
+
 impl Icon for PngSequence {
-    type Key = PathKey;
+    type Key = PngKey;
 
     fn new() -> Self {
         PngSequence {
@@ -35,22 +40,20 @@ impl Icon for PngSequence {
         source: &SourceImage,
         key: Self::Key,
     ) -> Result<(), Error<Self::Key>> {
-        if key.0 < MIN_PNG_SIZE {
-            return Err(Error::InvalidDimensions(key.0));
-        }
+        let size = key.as_size();
 
-        if self.entries.contains_key(&key.1) {
+        if self.entries.contains_key(&key.path) {
             return Err(Error::AlreadyIncluded(key));
         }
 
-        let icon = resample::safe_filter(filter, source, key.0)?;
+        let icon = resample::safe_filter(filter, source, size)?;
         let data = icon.to_rgba().into_raw();
         // Encode the pixel data as PNG and store it in a Vec<u8>
         let mut image = Vec::with_capacity(data.len());
         let encoder = PNGEncoder::new(&mut image);
-        encoder.encode(&data, key.0, key.0, ColorType::RGBA(8))?;
+        encoder.encode(&data, size, size, ColorType::RGBA(8))?;
 
-        match self.entries.insert(key.1, image) {
+        match self.entries.insert(key.path, image) {
             Some(img) => panic!("Sanity test failed: {:?} is already included.", img),
             None => Ok(()),
         }
@@ -82,5 +85,17 @@ impl Icon for PngSequence {
 
             Ok(())
         }
+    }
+}
+
+impl PngKey {
+    pub fn from<P: Into<PathBuf>>(size: u32, path: P) -> Option<Self> {
+        Some(PngKey { size: NonZeroU32::new(size)?, path: path.into() })
+    }
+}
+
+impl AsSize for PngKey {
+    fn as_size(&self) -> u32 {
+        self.size.get()
     }
 }

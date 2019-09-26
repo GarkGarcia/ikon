@@ -83,7 +83,7 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
     fs::File,
     io::{self, Write},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 pub mod favicon;
@@ -252,18 +252,6 @@ pub trait AsSize {
     fn as_size(&self) -> u32;
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-/// A _key type_ for simple icons that only associate images
-/// with their dimensions. Usefull for icon formats such as the
-/// `.ico` and `.icns` file formats.
-pub struct SizeKey(u32);
-
-#[derive(Clone, Debug, Eq, Hash)]
-/// An _key type_ for _icon formats_ that consist of a
-/// collectio of files labeled by _path_, such as _png sequences_ or
-/// _[FreeDesktop icon themes](https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html)_.
-pub struct PathKey(u32, PathBuf);
-
 #[derive(Clone)]
 /// A uniun type for raster and vector graphics.
 pub enum SourceImage {
@@ -279,41 +267,9 @@ pub enum Error<K: AsSize> {
     AlreadyIncluded(K),
     /// Generic I/O error.
     Io(io::Error),
-    /// Unsupported dimensions were suplied to an `Icon`
-    /// operation.
-    InvalidDimensions(u32),
     /// A resampling filter produced results of dimensions
     /// other the ones specified by it's arguments.
     MismatchedDimensions(u32, (u32, u32)),
-}
-
-impl AsSize for SizeKey {
-    fn as_size(&self) -> u32 {
-        self.0
-    }
-}
-
-impl PathKey {
-    /// Creates a `NamedEntry` from a reference to a `Path`.
-    /// # Example
-    /// ```rust
-    /// let key = NamedEntry::from(32, &"icons/32/icon.png");
-    /// ```
-    pub fn from<P: AsRef<Path>>(size: u32, path: &P) -> Self {
-        PathKey(size, PathBuf::from(path.as_ref()))
-    }
-}
-
-impl AsSize for PathKey {
-    fn as_size(&self) -> u32 {
-        self.0
-    }
-}
-
-impl PartialEq for PathKey {
-    fn eq(&self, other: &PathKey) -> bool {
-        self.1 == other.1
-    }
 }
 
 impl SourceImage {
@@ -380,7 +336,6 @@ impl<K: AsSize> Error<K> {
     pub fn map<T: AsSize, F: FnOnce(K) -> T>(self, f: F) -> Error<T> {
         match self {
             Error::AlreadyIncluded(e) => Error::AlreadyIncluded(f(e)),
-            Error::InvalidDimensions(size) => Error::InvalidDimensions(size),
             Error::Io(err) => Error::Io(err),
             Error::MismatchedDimensions(e, g) => Error::MismatchedDimensions(e, g),
         }
@@ -394,7 +349,6 @@ impl<K: AsSize + Debug + Eq> Display for Error<K> {
                 f,
                 "the icon already contains an entry associated with this key"
             ),
-            Error::InvalidDimensions(s) => write!(f, "{0}x{0} icons are not supported", s),
             Error::Io(err) => write!(f, "{}", err),
             Error::MismatchedDimensions(s, (w, h)) => write!(
                 f,
@@ -409,7 +363,6 @@ impl<K: AsSize + Debug> Debug for Error<K> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Error::AlreadyIncluded(e) => write!(f, "Error::AlreadyIncluded({:?})", e),
-            Error::InvalidDimensions(s) => write!(f, "Error::InvalidDimensions({})", s),
             Error::Io(err) => write!(f, "Error::Io({:?})", err),
             Error::MismatchedDimensions(e, g) => {
                 write!(f, "Error::MismatchedDimensions({}, {:?})", e, g)

@@ -146,7 +146,7 @@ where
     ///     }
     /// }
     /// ```
-    fn add_entry<F: FnMut(&SourceImage, u32) -> DynamicImage>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,
         source: &SourceImage,
@@ -192,7 +192,7 @@ where
     /// }
     /// ```
     fn add_entries<
-        F: FnMut(&SourceImage, u32) -> DynamicImage,
+        F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>,
         I: IntoIterator<Item = Self::Key>,
     >(
         &mut self,

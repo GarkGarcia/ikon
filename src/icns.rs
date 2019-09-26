@@ -36,14 +36,14 @@ impl Icon for Icns {
         }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, u32) -> DynamicImage>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
         mut filter: F,
         source: &SourceImage,
         key: Self::Key
     ) -> Result<(), Error<Self::Key>> {
         let size = key.as_size();
-        let icon = filter(source, size);
+        let icon = filter(source, size)?;
         let data = icon.to_rgba().into_vec();
 
         if self.keys.contains(&size) {

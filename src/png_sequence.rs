@@ -34,7 +34,7 @@ impl Icon for PngSequence {
         }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, u32) -> DynamicImage>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,
         source: &SourceImage,

@@ -100,7 +100,7 @@ impl Icon for Favicon {
         }
     }
 
-    fn add_entry<F: FnMut(&SourceImage, u32) -> DynamicImage>(
+    fn add_entry<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,
         source: &SourceImage,
@@ -189,7 +189,7 @@ impl AsRef<[u8]> for ImageBuffer {
     }
 }
 
-fn get_image_buffer<F: FnMut(&SourceImage, u32) -> DynamicImage>(
+fn get_image_buffer<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
     filter: F,
     source: &SourceImage,
     size: u32,

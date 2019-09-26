@@ -1,22 +1,26 @@
 use crate::{icns::*, ico::*, png_sequence::*, resample, Icon, SourceImage};
-use image::{png::PNGEncoder, ColorType, GenericImageView};
-use std::{fs::File, io::BufWriter};
+use image::{png::PNGEncoder, ColorType, DynamicImage, GenericImageView};
+use std::{
+    fs::File,
+    io::BufWriter,
+    io::{self, Write},
+};
 
-macro_rules! png {
-    ($r: expr, $s: expr, $w:expr) => {
-        let scaled = $r(&$s, 32);
-        let (w, h) = scaled.dimensions();
-        let encoder = PNGEncoder::new($w);
-        let data = scaled.to_rgba().into_raw();
+fn png<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>, W: Write>(
+    mut filter: F,
+    source: &SourceImage,
+    w: W,
+) -> io::Result<()> {
+    let scaled = filter(source, 32)?;
+    let (width, height) = scaled.dimensions();
+    let encoder = PNGEncoder::new(w);
+    let data = scaled.to_rgba().into_raw();
 
-        encoder
-            .encode(&data, w, h, ColorType::RGBA(8))
-            .expect("Could not encode or save the png output");
-    };
+    encoder.encode(&data, width, height, ColorType::RGBA(8))
 }
 
 #[test]
-fn test_resample() {
+fn test_resample() -> io::Result<()> {
     let mut file_near = File::create("tests/test_near.png").expect("Couldn't create file");
 
     let mut file_linear = File::create("tests/test_linear.png").expect("Couldn't create file");
@@ -29,10 +33,12 @@ fn test_resample() {
 
     let box_svg = SourceImage::open("tests/box.svg").expect("File not found");
 
-    png!(resample::nearest, &hydra, &mut file_near);
-    png!(resample::linear, &hydra, &mut file_linear);
-    png!(resample::cubic, &hydra, &mut file_cubic);
-    png!(resample::nearest, &box_svg, &mut file_svg);
+    png(resample::nearest, &hydra, &mut file_near)?;
+    png(resample::linear, &hydra, &mut file_linear)?;
+    png(resample::cubic, &hydra, &mut file_cubic)?;
+    png(resample::nearest, &box_svg, &mut file_svg)?;
+
+    Ok(())
 }
 
 #[test]

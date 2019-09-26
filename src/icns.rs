@@ -2,7 +2,7 @@
 
 extern crate icns;
 
-use crate::{SizeKey, Icon, SourceImage, Error, STD_CAPACITY};
+use crate::{Icon, AsSize, SourceImage, Error, STD_CAPACITY};
 use image::{DynamicImage, GenericImageView};
 use std::{
     fmt::{self, Debug, Formatter},
@@ -15,8 +15,19 @@ pub struct Icns {
     keys: Vec<u32>,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum IcnsKey {
+    RGBA16,
+    RGBA32,
+    RGBA64,
+    RGBA128,
+    RGBA256,
+    RGBA512,
+    RGBA1024
+}
+
 impl Icon for Icns {
-    type Key = SizeKey;
+    type Key = IcnsKey;
 
     fn new() -> Self {
         Icns {
@@ -31,23 +42,26 @@ impl Icon for Icns {
         source: &SourceImage,
         key: Self::Key
     ) -> Result<(), Error<Self::Key>> {
-        let icon = filter(source, key.0);
+        let size = key.as_size();
+        let icon = filter(source, size);
         let data = icon.to_rgba().into_vec();
 
-        if self.keys.contains(&key.0) {
+        if self.keys.contains(&size) {
             return Err(Error::AlreadyIncluded(key));
         }
 
         // The Image::from_data method only fails when the specified
         // image dimensions do not fit the buffer length
-        let image = icns::Image::from_data(icns::PixelFormat::RGBA, key.0, key.0, data)
-            .map_err(|_| Error::MismatchedDimensions(key.0, icon.dimensions()))?;
+        let image = icns::Image::from_data(icns::PixelFormat::RGBA, size, size, data)
+            .map_err(|_| Error::MismatchedDimensions(size, icon.dimensions()))?;
 
         // The IconFamily::add_icon method only fails when the
         // specified image dimensions are not supported by ICNS
         self.icon_family
             .add_icon(&image)
-            .map_err(|_| Error::InvalidDimensions(key.0))
+            .expect("The image dimensions should be supported by ICNS");
+
+        Ok(())
     }
 
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
@@ -98,5 +112,34 @@ impl Debug for Icns {
         );
 
         write!(f, "icon_baker::Icns {{ icon_family: {} }} ", icon_dir)
+    }
+}
+
+impl IcnsKey {
+    pub fn from(size: u32) -> Option<Self> {
+        match size {
+            1024 => Some(Self::RGBA1024),
+            512 => Some(Self::RGBA512),
+            256 => Some(Self::RGBA256),
+            128 => Some(Self::RGBA128),
+            64 => Some(Self::RGBA64),
+            32 => Some(Self::RGBA32),
+            16 => Some(Self::RGBA16),
+            _ => None
+        }
+    }
+}
+
+impl AsSize for IcnsKey {
+    fn as_size(&self) -> u32 {
+        match self {
+            Self::RGBA1024 => 1024,
+            Self::RGBA512 => 512,
+            Self::RGBA256 => 256,
+            Self::RGBA128 => 128,
+            Self::RGBA64 => 64,
+            Self::RGBA32 => 32,
+            Self::RGBA16 => 16
+        }
     }
 }

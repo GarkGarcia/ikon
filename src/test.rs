@@ -1,4 +1,4 @@
-use crate::{icns::*, ico::*, png_sequence::*, resample, PathKey, Icon, SizeKey, SourceImage};
+use crate::{icns::*, ico::*, png_sequence::*, resample, Icon, PathKey, SourceImage};
 use image::{png::PNGEncoder, ColorType, GenericImageView};
 use std::{fs::File, io::BufWriter};
 
@@ -69,16 +69,17 @@ fn test_icns() {
 
     let mut icon = Icns::new();
     let img = SourceImage::open("tests/hydra.png").expect("File not found");
+    let v = vec![IcnsKey::from(32).unwrap(), IcnsKey::from(64).unwrap()];
 
-    if let Err(err) = icon.add_entries(resample::nearest, &img, vec![SizeKey(32), SizeKey(64)]) {
+    if let Err(err) = icon.add_entries(resample::nearest, &img, v) {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.add_entry(resample::nearest, &img, SizeKey(128)) {
+    if let Err(err) = icon.add_entry(resample::nearest, &img, IcnsKey::from(128).unwrap()) {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.add_entry(resample::nearest, &img, SizeKey(32)) {
+    if let Err(err) = icon.add_entry(resample::nearest, &img, IcnsKey::from(32).unwrap()) {
         panic!("{:?}", err);
     }
 

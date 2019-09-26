@@ -3,53 +3,90 @@
 extern crate image;
 extern crate tar;
 
-use crate::{
-    png_sequence::PngSequence, Error, Icon, PathKey, SourceImage, STD_CAPACITY
-};
-use image::DynamicImage;
+use crate::{resample, AsSize, Error, Icon, SourceImage, STD_CAPACITY};
+use image::{png::PNGEncoder, ColorType, DynamicImage};
+use resvg::usvg::{XmlIndent, XmlOptions};
 use std::{
+    collections::HashMap,
     fs::File,
     io::{self, Write},
+    num::NonZeroU32,
     path::{Path, PathBuf},
-    cmp::{Ord, Ordering}
+};
+
+const XML_OPTS: XmlOptions = XmlOptions {
+    use_single_quote: false,
+    indent: XmlIndent::None,
+    attributes_indent: XmlIndent::None,
 };
 
 macro_rules! path {
-    ($format: expr, $($arg: expr)*) => {
-        PathBuf::from(format!($format, $($arg)*))
+    ($path: expr) => {
+        PathBuf::from($path)
+    };
+
+    ($format: expr, $($arg: expr),*) => {
+        PathBuf::from(format!($format, $($arg),*))
     };
 }
 
 #[derive(Clone)]
-/// A comprehencive _favicon_ builder.
+/// A comprehensive _favicon_ builder.
 pub struct Favicon {
-    internal: PngSequence,
-    keys: Vec<FaviconKey>
+    source_map: HashMap<ImageBuffer, Vec<u32>>,
+    entries: Vec<u32>,
 }
 
 /// The _key type_ for `FavIcon`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord)]
-pub enum FaviconKey {
-    /// Variant for 
-    /// _[Apple touch icons](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html)_.
-    AppleTouchIcon(u32),
-    /// Variant for generic entries.
-    Icon(u32),
+pub type FaviconKey = NonZeroU32;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum ImageBuffer {
+    Png(Vec<u8>),
+    Svg(Vec<u8>),
 }
 
 impl Favicon {
     fn get_html_helper(&self) -> io::Result<Vec<u8>> {
-        let mut helper = Vec::with_capacity(self.keys.len() * 90);
+        let mut helper = Vec::with_capacity(self.entries.len() * 180);
+        let mut i = 0;
 
-        for entry in &self.keys {
+        for (buff, sizes) in self.entries() {
             write!(
                 helper,
-                "<link rel=\"{0}\" type=\"image/png\" sizes=\"{1}x{1}\" href=\"{2}\">\n",
-                entry.rel(), entry.as_ref(), entry.to_path_buff().display()
+                "<link rel=\"icon\" type=\"{}\" sizes=\" ",
+                buff.get_type()
             )?;
+
+            for size in sizes {
+                write!(&mut helper, "{0}x{0} ", size)?;
+            }
+
+            write!(
+                helper,
+                "\" href=\"icons/favicon@{}.{}\">\n",
+                i,
+                buff.get_extension()
+            )?;
+
+            i += 1;
         }
 
         Ok(helper)
+    }
+
+    /// Returns the content of `self.source_map` sorted by the minimum value
+    /// of each value.
+    fn entries(&self) -> Vec<(&ImageBuffer, &Vec<u32>)> {
+        let len = self.entries.len();
+        let mut output = Vec::with_capacity(len);
+
+        for pair in &self.source_map {
+            output.push(pair);
+        }
+
+        output.sort_by_key(|(_, sizes)| sizes[0]);
+        output
     }
 }
 
@@ -58,8 +95,8 @@ impl Icon for Favicon {
 
     fn new() -> Self {
         Favicon {
-            internal: PngSequence::new(),
-            keys: Vec::with_capacity(STD_CAPACITY)
+            source_map: HashMap::with_capacity(STD_CAPACITY),
+            entries: Vec::with_capacity(STD_CAPACITY),
         }
     }
 
@@ -69,24 +106,35 @@ impl Icon for Favicon {
         source: &SourceImage,
         key: Self::Key,
     ) -> Result<(), Error<Self::Key>> {
-        let path = key.to_path_buff();
-        let png_entry = PathKey(*key.as_ref(), path);
+        let size = key.as_size();
 
-        if let Err(err) = self.internal.add_entry(filter, source, png_entry) {
-            Err(err.map(|_| key))
-        } else {
-            let _ = self.keys.push(key);
-            self.keys.sort();
-            Ok(())
+        if self.entries.contains(&size) {
+            return Err(Error::AlreadyIncluded(key));
         }
+
+        let buff = get_image_buffer(filter, source, size)?;
+        let entry = self.source_map.entry(buff).or_default();
+
+        entry.push(size);
+        entry.sort();
+        self.entries.push(size);
+
+        Ok(())
     }
 
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         let mut tar_builder = tar::Builder::new(w);
-        self.internal.write_to_tar(&mut tar_builder)?;
+        let mut i = 0;
+
+        for (buff, _) in self.entries() {
+            let path = path!("icons/favicon@{}.{}", i, buff.get_extension());
+            write_data(&mut tar_builder, buff.as_ref(), path)?;
+
+            i += 1;
+        }
 
         let helper = self.get_html_helper()?;
-        write_data(&mut tar_builder, helper.as_ref(), "helper.html")
+        write_data(&mut tar_builder, helper.as_ref(), path!("helper.html"))
     }
 
     fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()> {
@@ -94,7 +142,14 @@ impl Icon for Favicon {
             let mut file = File::create(path.as_ref())?;
             self.write(&mut file)
         } else {
-            self.internal.save(path)?;
+            let mut i = 0;
+
+            for (buff, _) in self.entries() {
+                let path = path!("icons/favicon@{}.{}", i, buff.get_extension());
+                save_file(buff.as_ref(), path.as_ref(), "helper.html")?;
+
+                i += 1;
+            }
 
             let helper = self.get_html_helper()?;
             save_file(helper.as_ref(), path.as_ref(), "helper.html")
@@ -102,53 +157,72 @@ impl Icon for Favicon {
     }
 }
 
-impl FaviconKey {
+impl AsSize for FaviconKey {
+    fn as_size(&self) -> u32 {
+        self.get()
+    }
+}
+
+impl ImageBuffer {
     #[inline]
-    /// Returns the _rel_ 
-    pub fn rel(&self) -> &str {
+    fn get_type(&self) -> &str {
         match self {
-            FaviconKey::AppleTouchIcon(_) => "apple-touch-icon-precomposed",
-            FaviconKey::Icon(_) => "icon"
+            Self::Png(_) => "image/png",
+            Self::Svg(_) => "image/svg+xml",
         }
     }
 
     #[inline]
-    fn to_path_buff(self) -> PathBuf {
+    fn get_extension(&self) -> &str {
         match self {
-            FaviconKey::AppleTouchIcon(size) => path!("icons/apple-touch-{}.png", size),
-            FaviconKey::Icon(size) => path!("icons/favicon-{}.png", size),
+            Self::Png(_) => "png",
+            Self::Svg(_) => "svg",
         }
     }
 }
 
-impl AsRef<u32> for FaviconKey {
-    fn as_ref(&self) -> &u32 {
+impl AsRef<[u8]> for ImageBuffer {
+    fn as_ref(&self) -> &[u8] {
         match self {
-            FaviconKey::AppleTouchIcon(size) | FaviconKey::Icon(size) => size
+            Self::Png(buff) | Self::Svg(buff) => buff.as_ref(),
         }
     }
 }
 
-impl PartialOrd for FaviconKey {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self.as_ref().cmp(self.as_ref()) {
-            Ordering::Equal => match (self, other) {
-                (FaviconKey::AppleTouchIcon(_), FaviconKey::Icon(_)) => Some(Ordering::Greater),
-                (FaviconKey::Icon(_), FaviconKey::AppleTouchIcon(_)) => Some(Ordering::Less),
-                _ => Some(Ordering::Equal)
-            },
-            ord => Some(ord)
+fn get_image_buffer<F: FnMut(&SourceImage, u32) -> DynamicImage>(
+    filter: F,
+    source: &SourceImage,
+    size: u32,
+) -> Result<ImageBuffer, Error<FaviconKey>> {
+    match source {
+        SourceImage::Raster(_) => {
+            get_png_buffer(resample::safe_filter(filter, source, size)?, size)
         }
+        SourceImage::Svg(svg) => Ok(ImageBuffer::Svg(svg.to_string(XML_OPTS).into_bytes())),
     }
+}
+
+fn get_png_buffer(image: DynamicImage, size: u32) -> Result<ImageBuffer, Error<FaviconKey>> {
+    let data = image.to_rgba().into_raw();
+    // Encode the pixel data as PNG and store it in a Vec<u8>
+    let mut output = Vec::with_capacity(data.len());
+    let encoder = PNGEncoder::new(&mut output);
+    encoder.encode(&data, size, size, ColorType::RGBA(8))?;
+
+    Ok(ImageBuffer::Png(output))
 }
 
 /// Helper function to append a buffer to a `.tar` file
-fn write_data<W: Write>(builder: &mut tar::Builder<W>, data: &[u8], path: &str) -> io::Result<()> {
+fn write_data<W: Write>(
+    builder: &mut tar::Builder<W>,
+    data: &[u8],
+    path: PathBuf,
+) -> io::Result<()> {
     let mut header = tar::Header::new_gnu();
     header.set_size(data.len() as u64);
     header.set_cksum();
 
-    builder.append_data::<&str, &[u8]>(&mut header, path, data)
+    builder.append_data::<PathBuf, &[u8]>(&mut header, path, data)
 }
 
 /// Helper function to write a buffer to a location on disk.

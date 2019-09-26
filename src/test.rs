@@ -42,15 +42,19 @@ fn test_ico() {
     let mut icon = Ico::new();
     let img = SourceImage::open("tests/hydra.png").expect("File not found");
 
-    if let Err(err) = icon.add_entries(resample::nearest, &img, vec![SizeKey(32), SizeKey(64)]) {
+    let v = vec![IcoKey::new(32).unwrap(), IcoKey::new(64).unwrap()];
+
+    if let Err(err) = icon.add_entries(resample::nearest, &img, v) {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.add_entry(resample::nearest, &img, SizeKey(128)) {
+    // Should pass
+    if let Err(err) = icon.add_entry(resample::nearest, &img, IcoKey::new(128).unwrap()) {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.add_entry(resample::nearest, &img, SizeKey(32)) {
+    // Should fail
+    if let Err(err) = icon.add_entry(resample::nearest, &img, IcoKey::new(32).unwrap()) {
         panic!("{:?}", err);
     }
 

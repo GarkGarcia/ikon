@@ -1,71 +1,71 @@
-//! A simple solution for encoding common icon file-formats, such as `.ico`, `.icns` and _favicon_. 
-//! 
+//! A simple solution for encoding common icon file-formats, such as `.ico`, `.icns` and _favicon_.
+//!
 //! This crate is mostly a wrapper for other libraries, unifying existing APIs into a single, cohesive
 //! interface. It serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)** internal library.
 //!
 //! # Overview
-//! 
+//!
 //! An _icon_ consists of a map between _keys_ and _images_. An _entry_ is a _key-value_ pair contained
 //! in an _icon_.
-//! 
+//!
 //! **IconBaker** simply automates the process of re-scaling _images_, creating _entries_ and combining
 //! them into an _icon_.
-//! 
+//!
 //! ## Keys
-//! 
+//!
 //! Each _icon_ format is associated with a particular _key type_, which determines how
 //! _entries_ are labeled. Each _key_ can only be associated with a single _image_.
-//! 
+//!
 //! For example, _icon_ formats that only differentiate _entries_ by the dimensions of their associated
 //! _images_ are labeled by _positive integers_, such as the `.ico` and `.icns` file-formats.
-//! 
-//! On the other hand, _icon_ formats that distinguish their _entries_ by 
+//!
+//! On the other hand, _icon_ formats that distinguish their _entries_ by
 //! _[path](https://en.wikipedia.org/wiki/Path_%28computing%29)_, such as _png sequeces_ and
 //! _[FreeDesktop icon themes](https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html)_
 //! , are labeled by _path_.
-//! 
+//!
 //! Note that, since the dimensions
 //! of the _images_ contained in an _entry_ are dictated by their associated _entries_, every _key_
 //! must be convertible to a _positive integers_. Therefore, all _key types_ are required to implement
-//! `AsRef<u32>`.
-//! 
+//! `Key`.
+//!
 //! ## Resampling
-//! 
-//! Pictures are scaled using resampling filters, which are represented by _functions that take a source_ 
+//!
+//! Pictures are scaled using resampling filters, which are represented by _functions that take a source_
 //! _image and a size and return a re-scaled image_.
-//! 
-//! This allows the users of this crate to provide their custom resampling filters. Common resampling 
-//! filters are provided in the 
+//!
+//! This allows the users of this crate to provide their custom resampling filters. Common resampling
+//! filters are provided in the
 //! [`resample`](https://docs.rs/icon_baker/2.2.0/icon_baker/resample/index.html) module.
-//! 
+//!
 //! # Examples
-//! 
+//!
 //! ## General Usage
-//! 
+//!
 //! ```rust
 //! use icon_baker::{Ico, SourceImage, Icon, Error};
 //!  
 //! fn example() -> Result<(), Error> {
 //!     let icon = Ico::new();
-//! 
+//!
 //!     match SourceImage::from_path("image.svg") {
 //!         Some(img) => icon.add_entry(resample::linear, &img, 32),
 //!         None      => Ok(())
 //!     }
 //! }
 //! ```
-//! 
+//!
 //! ## Writing to a File
-//! 
+//!
 //! ```rust
 //! use icon_baker::*;
 //! use std::{io, fs::File};
 //!  
 //! fn example() -> io::Result<()> {
 //!     let icon = PngSequence::new();
-//! 
+//!
 //!     /* Process the icon */
-//! 
+//!
 //!     let file = File::create("out.icns")?;
 //!     icon.write(file)
 //! }
@@ -74,9 +74,9 @@
 pub extern crate image;
 pub extern crate resvg;
 
-pub use resvg::{raqote, usvg};
 use crate::usvg::Tree;
 use image::{DynamicImage, GenericImageView};
+pub use resvg::{raqote, usvg};
 use std::{
     convert::From,
     error,
@@ -86,9 +86,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+pub mod favicon;
 pub mod icns;
 pub mod ico;
-pub mod favicon;
 pub mod png_sequence;
 pub mod resample;
 #[cfg(test)]
@@ -99,7 +99,10 @@ const INVALID_DIM_ERR: &str =
     "a resampling filter returned an image of dimensions other than the ones specified by it's arguments";
 
 /// A generic representation of an icon encoder.
-pub trait Icon where Self::Key: AsRef<u32> {
+pub trait Icon
+where
+    Self::Key: AsSize,
+{
     type Key;
 
     /// Creates a new icon.
@@ -188,7 +191,10 @@ pub trait Icon where Self::Key: AsRef<u32> {
     ///     }
     /// }
     /// ```
-    fn add_entries<F: FnMut(&SourceImage, u32) -> DynamicImage, I: IntoIterator<Item = Self::Key>>(
+    fn add_entries<
+        F: FnMut(&SourceImage, u32) -> DynamicImage,
+        I: IntoIterator<Item = Self::Key>,
+    >(
         &mut self,
         mut filter: F,
         source: &SourceImage,
@@ -242,6 +248,10 @@ pub trait Icon where Self::Key: AsRef<u32> {
     }
 }
 
+pub trait AsSize {
+    fn as_size(&self) -> u32;
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 /// A _key type_ for simple icons that only associate images
 /// with their dimensions. Usefull for icon formats such as the
@@ -264,7 +274,7 @@ pub enum SourceImage {
 }
 
 /// The error type for operations of the `Icon` trait.
-pub enum Error<K: AsRef<u32>> {
+pub enum Error<K: AsSize> {
     /// The `Icon` instance already includes an entry associated with this key.
     AlreadyIncluded(K),
     /// Generic I/O error.
@@ -277,9 +287,9 @@ pub enum Error<K: AsRef<u32>> {
     MismatchedDimensions(u32, (u32, u32)),
 }
 
-impl AsRef<u32> for SizeKey {
-    fn as_ref(&self) -> &u32 {
-        &self.0
+impl AsSize for SizeKey {
+    fn as_size(&self) -> u32 {
+        self.0
     }
 }
 
@@ -294,9 +304,9 @@ impl PathKey {
     }
 }
 
-impl AsRef<u32> for PathKey {
-    fn as_ref(&self) -> &u32 {
-        &self.0
+impl AsSize for PathKey {
+    fn as_size(&self) -> u32 {
+        self.0
     }
 }
 
@@ -365,12 +375,9 @@ impl From<DynamicImage> for SourceImage {
     }
 }
 
-impl<K: AsRef<u32>> Error<K> {
+impl<K: AsSize> Error<K> {
     /// Converts `self` to a `Error<T>` using `f`.
-    pub fn map<T: AsRef<u32>, F: FnOnce(K) -> T>(
-        self,
-        f: F
-    ) -> Error<T> {
+    pub fn map<T: AsSize, F: FnOnce(K) -> T>(self, f: F) -> Error<T> {
         match self {
             Error::AlreadyIncluded(e) => Error::AlreadyIncluded(f(e)),
             Error::InvalidDimensions(size) => Error::InvalidDimensions(size),
@@ -380,10 +387,13 @@ impl<K: AsRef<u32>> Error<K> {
     }
 }
 
-impl<K: AsRef<u32> + Debug + Eq> Display for Error<K> {
+impl<K: AsSize + Debug + Eq> Display for Error<K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::AlreadyIncluded(_) => write!(f, "the icon already contains an entry associated with this key"),
+            Error::AlreadyIncluded(_) => write!(
+                f,
+                "the icon already contains an entry associated with this key"
+            ),
             Error::InvalidDimensions(s) => write!(f, "{0}x{0} icons are not supported", s),
             Error::Io(err) => write!(f, "{}", err),
             Error::MismatchedDimensions(s, (w, h)) => write!(
@@ -395,18 +405,20 @@ impl<K: AsRef<u32> + Debug + Eq> Display for Error<K> {
     }
 }
 
-impl <K: AsRef<u32> + Debug> Debug for Error<K> {
+impl<K: AsSize + Debug> Debug for Error<K> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Error::AlreadyIncluded(e) => write!(f, "Error::AlreadyIncluded({:?})", e),
             Error::InvalidDimensions(s) => write!(f, "Error::InvalidDimensions({})", s),
             Error::Io(err) => write!(f, "Error::Io({:?})", err),
-            Error::MismatchedDimensions(e, g) => write!(f, "Error::MismatchedDimensions({}, {:?})", e, g)
+            Error::MismatchedDimensions(e, g) => {
+                write!(f, "Error::MismatchedDimensions({}, {:?})", e, g)
+            }
         }
     }
 }
 
-impl<K: AsRef<u32> + Debug + Eq> error::Error for Error<K> {
+impl<K: AsSize + Debug + Eq> error::Error for Error<K> {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         if let Error::Io(ref err) = self {
             Some(err)
@@ -416,13 +428,13 @@ impl<K: AsRef<u32> + Debug + Eq> error::Error for Error<K> {
     }
 }
 
-impl<K: AsRef<u32>> From<io::Error> for Error<K> {
+impl<K: AsSize> From<io::Error> for Error<K> {
     fn from(err: io::Error) -> Self {
         Error::Io(err)
     }
 }
 
-impl<K: AsRef<u32>> Into<io::Error> for Error<K> {
+impl<K: AsSize> Into<io::Error> for Error<K> {
     fn into(self) -> io::Error {
         match self {
             Error::Io(err) => err,

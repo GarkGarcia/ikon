@@ -1,6 +1,6 @@
 //! A collection of commonly used resampling filters.
 
-use crate::{SourceImage, Error};
+use crate::{SourceImage, Error, AsSize};
 use std::fmt::Debug;
 use image::{imageops, DynamicImage, ImageBuffer, GenericImageView, FilterType, Bgra};
 use resvg::{usvg::{self, Tree}, raqote::DrawTarget , FitTo};
@@ -100,7 +100,7 @@ fn draw_target_to_rgba(mut surface: DrawTarget, size: u32) -> DynamicImage {
 
 /// Aplies a resampling filter to a source and checks if the outputted dimensions match
 /// the ones specified by `size`.
-pub(crate) fn safe_filter<F: FnMut(&SourceImage, u32) -> DynamicImage, E: AsRef<u32> + Debug + Eq>(
+pub(crate) fn safe_filter<F: FnMut(&SourceImage, u32) -> DynamicImage, E: AsSize + Debug + Eq>(
     mut filter: F,
     source: &SourceImage,
     size: u32

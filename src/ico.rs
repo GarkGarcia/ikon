@@ -2,16 +2,14 @@
 
 extern crate ico;
 
-use crate::{resample, SizeKey, Error, Icon, SourceImage, STD_CAPACITY};
+use crate::{resample, AsSize, Error, Icon, SourceImage, STD_CAPACITY};
 use image::DynamicImage;
 use std::{
     fmt::{self, Debug, Formatter},
     io::{self, Write},
     result,
+    num::NonZeroU8
 };
-
-const MIN_ICO_SIZE: u32 = 1;
-const MAX_ICO_SIZE: u32 = 256;
 
 /// An ecoder for the `.ico` file format.
 #[derive(Clone)]
@@ -20,8 +18,10 @@ pub struct Ico {
     keys: Vec<u32>,
 }
 
+pub type IcoKey = NonZeroU8;
+
 impl Icon for Ico {
-    type Key = SizeKey;
+    type Key = IcoKey;
 
     fn new() -> Self {
         Ico {
@@ -36,17 +36,15 @@ impl Icon for Ico {
         source: &SourceImage,
         key: Self::Key,
     ) -> Result<(), Error<Self::Key>> {
-        if key.0 < MIN_ICO_SIZE || key.0 > MAX_ICO_SIZE {
-            return Err(Error::InvalidDimensions(key.0));
-        }
+        let size = key.as_size();
 
-        if self.keys.contains(&key.0) {
+        if self.keys.contains(&size) {
             return Err(Error::AlreadyIncluded(key));
         }
 
-        let icon = resample::safe_filter(filter, source, key.0)?;
+        let icon = resample::safe_filter(filter, source, size)?;
         let data = icon.to_rgba().into_vec();
-        let image = ico::IconImage::from_rgba_data(key.0, key.0, data);
+        let image = ico::IconImage::from_rgba_data(size, size, data);
 
         let entry = ico::IconDirEntry::encode(&image)?;
         self.icon_dir.add_entry(entry);
@@ -74,5 +72,11 @@ impl Debug for Ico {
         );
 
         write!(f, "icon_baker::Ico {{ icon_dir: {} }} ", icon_dir)
+    }
+}
+
+impl AsSize for IcoKey {
+    fn as_size(&self) -> u32 {
+        self.get() as u32
     }
 }

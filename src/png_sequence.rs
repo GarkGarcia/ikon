@@ -3,7 +3,7 @@
 extern crate image;
 extern crate tar;
 
-use crate::{resample, Icon, PathKey, SourceImage, Error, STD_CAPACITY};
+use crate::{resample, Error, Icon, PathKey, SourceImage, STD_CAPACITY};
 use image::{png::PNGEncoder, ColorType, DynamicImage};
 use std::{
     collections::HashMap,
@@ -18,24 +18,6 @@ const MIN_PNG_SIZE: u32 = 1;
 #[derive(Clone, Debug)]
 pub struct PngSequence {
     entries: HashMap<PathBuf, Vec<u8>>,
-}
-
-impl PngSequence {
-    #[inline]
-    pub(crate) fn write_to_tar<W: Write>(
-        &self,
-        builder: &mut tar::Builder<W>
-    ) -> io::Result<()> {
-        for (path, image) in &self.entries {
-            let mut header = tar::Header::new_gnu();
-            header.set_size(image.len() as u64);
-            header.set_cksum();
-
-            builder.append_data::<_, &[u8]>(&mut header, path.clone(), image.as_ref())?;
-        }
-
-        Ok(())
-    }
 }
 
 impl Icon for PngSequence {
@@ -63,7 +45,6 @@ impl Icon for PngSequence {
 
         let icon = resample::safe_filter(filter, source, key.0)?;
         let data = icon.to_rgba().into_raw();
-        
         // Encode the pixel data as PNG and store it in a Vec<u8>
         let mut image = Vec::with_capacity(data.len());
         let encoder = PNGEncoder::new(&mut image);
@@ -77,7 +58,16 @@ impl Icon for PngSequence {
 
     fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         let mut tar_builder = tar::Builder::new(w);
-        self.write_to_tar(&mut tar_builder)
+
+        for (path, image) in &self.entries {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(image.len() as u64);
+            header.set_cksum();
+
+            tar_builder.append_data::<_, &[u8]>(&mut header, path.clone(), image.as_ref())?;
+        }
+
+        Ok(())
     }
 
     fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()> {

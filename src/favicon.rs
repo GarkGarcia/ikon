@@ -7,7 +7,7 @@ use crate::{resample, AsSize, Error, Icon, SourceImage, STD_CAPACITY};
 use image::{png::PNGEncoder, ColorType, DynamicImage};
 use resvg::usvg::{XmlIndent, XmlOptions};
 use std::{
-    collections::{HashMap, hash_map::{Entry, VacantEntry, OccupiedEntry}},
+    collections::hash_map::{Entry, HashMap, OccupiedEntry, VacantEntry},
     fs::File,
     io::{self, Write},
     num::NonZeroU32,
@@ -41,9 +41,11 @@ pub struct Favicon {
 pub type FaviconKey = NonZeroU32;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// Information about the file format and the
+/// associated sizes of a file buffer.
 enum BuffInfo {
     Png(u32),
-    Svg(Vec<u32>)
+    Svg(Vec<u32>),
 }
 
 impl Favicon {
@@ -117,7 +119,7 @@ impl Icon for Favicon {
 
         match self.source_map.entry(buff) {
             Entry::Occupied(entry) => insert_occupied(entry, size),
-            Entry::Vacant(entry) => insert_vacant(entry, source, size)
+            Entry::Vacant(entry) => insert_vacant(entry, source, size),
         }
 
         self.entries.push(size);
@@ -187,7 +189,7 @@ impl BuffInfo {
     fn get_min_size(&self) -> u32 {
         match self {
             Self::Png(size) => *size,
-            Self::Svg(sizes) => sizes[0]
+            Self::Svg(sizes) => sizes[0],
         }
     }
 
@@ -195,8 +197,10 @@ impl BuffInfo {
     fn write_sizes(&self, w: &mut Vec<u8>) -> io::Result<()> {
         match self {
             BuffInfo::Png(size) => write!(w, "{0}x{0} ", size)?,
-            BuffInfo::Svg(sizes) => for size in sizes {
-                write!(w, "{0}x{0} ", size)?;
+            BuffInfo::Svg(sizes) => {
+                for size in sizes {
+                    write!(w, "{0}x{0} ", size)?;
+                }
             }
         }
 
@@ -208,7 +212,7 @@ impl BuffInfo {
 fn insert_vacant<'a>(entry: VacantEntry<'a, Vec<u8>, BuffInfo>, source: &SourceImage, size: u32) {
     let _ = match source {
         SourceImage::Raster(_) => entry.insert(BuffInfo::Png(size)),
-        SourceImage::Svg(_) => entry.insert(BuffInfo::Svg(vec![size]))
+        SourceImage::Svg(_) => entry.insert(BuffInfo::Svg(vec![size])),
     };
 }
 

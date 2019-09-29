@@ -7,7 +7,7 @@ use crate::{resample, AsSize, Error, Icon, SourceImage, STD_CAPACITY};
 use image::{png::PNGEncoder, ColorType, DynamicImage};
 use resvg::usvg::{XmlIndent, XmlOptions};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, hash_map::{Entry, VacantEntry, OccupiedEntry}},
     fs::File,
     io::{self, Write},
     num::NonZeroU32,
@@ -33,40 +33,40 @@ macro_rules! path {
 #[derive(Clone)]
 /// A comprehensive _favicon_ builder.
 pub struct Favicon {
-    source_map: HashMap<ImageBuffer, Vec<u32>>,
+    source_map: HashMap<Vec<u8>, BuffInfo>,
     entries: Vec<u32>,
 }
 
 /// The _key type_ for `FavIcon`.
 pub type FaviconKey = NonZeroU32;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-enum ImageBuffer {
-    Png(Vec<u8>),
-    Svg(Vec<u8>),
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum BuffInfo {
+    Png(u32),
+    Svg(Vec<u32>)
 }
 
 impl Favicon {
-    fn get_html_helper(&self) -> io::Result<Vec<u8>> {
+    /// Returns a buffer containing _HTML_ link tags to assist on
+    /// the creating of the icon.
+    pub fn html_helper(&self) -> io::Result<Vec<u8>> {
         let mut helper = Vec::with_capacity(self.entries.len() * 180);
         let mut i = 0;
 
-        for (buff, sizes) in self.entries() {
+        for (_, info) in self.entries() {
             write!(
                 helper,
                 "<link rel=\"icon\" type=\"{}\" sizes=\" ",
-                buff.get_type()
+                info.get_type()
             )?;
 
-            for size in sizes {
-                write!(&mut helper, "{0}x{0} ", size)?;
-            }
+            info.write_sizes(&mut helper)?;
 
             write!(
                 helper,
-                "\" href=\"icons/favicon@{}.{}\">\n",
+                "\" href=\"icons/favicon-{}.{}\">\n",
                 i,
-                buff.get_extension()
+                info.get_extension()
             )?;
 
             i += 1;
@@ -77,7 +77,7 @@ impl Favicon {
 
     /// Returns the content of `self.source_map` sorted by the minimum value
     /// of each value.
-    fn entries(&self) -> Vec<(&ImageBuffer, &Vec<u32>)> {
+    fn entries(&self) -> Vec<(&Vec<u8>, &BuffInfo)> {
         let len = self.entries.len();
         let mut output = Vec::with_capacity(len);
 
@@ -85,7 +85,8 @@ impl Favicon {
             output.push(pair);
         }
 
-        output.sort_by_key(|(_, sizes)| sizes[0]);
+        // Sort by the minimun size associated with the file
+        output.sort_by_key(|(_, entry)| entry.get_min_size());
         output
     }
 }
@@ -113,12 +114,13 @@ impl Icon for Favicon {
         }
 
         let buff = get_image_buffer(filter, source, size)?;
-        let entry = self.source_map.entry(buff).or_default();
 
-        entry.push(size);
-        entry.sort();
+        match self.source_map.entry(buff) {
+            Entry::Occupied(entry) => insert_occupied(entry, size),
+            Entry::Vacant(entry) => insert_vacant(entry, source, size)
+        }
+
         self.entries.push(size);
-
         Ok(())
     }
 
@@ -126,14 +128,14 @@ impl Icon for Favicon {
         let mut tar_builder = tar::Builder::new(w);
         let mut i = 0;
 
-        for (buff, _) in self.entries() {
-            let path = path!("icons/favicon@{}.{}", i, buff.get_extension());
+        for (buff, info) in self.entries() {
+            let path = path!("icons/favicon-{}.{}", i, info.get_extension());
             write_data(&mut tar_builder, buff.as_ref(), path)?;
 
             i += 1;
         }
 
-        let helper = self.get_html_helper()?;
+        let helper = self.html_helper()?;
         write_data(&mut tar_builder, helper.as_ref(), path!("helper.html"))
     }
 
@@ -144,14 +146,14 @@ impl Icon for Favicon {
         } else {
             let mut i = 0;
 
-            for (buff, _) in self.entries() {
-                let path = path!("icons/favicon@{}.{}", i, buff.get_extension());
+            for (buff, info) in self.entries() {
+                let path = path!("icons/favicon-{}.{}", i, info.get_extension());
                 save_file(buff.as_ref(), path.as_ref(), "helper.html")?;
 
                 i += 1;
             }
 
-            let helper = self.get_html_helper()?;
+            let helper = self.html_helper()?;
             save_file(helper.as_ref(), path.as_ref(), "helper.html")
         }
     }
@@ -163,7 +165,7 @@ impl AsSize for FaviconKey {
     }
 }
 
-impl ImageBuffer {
+impl BuffInfo {
     #[inline]
     fn get_type(&self) -> &str {
         match self {
@@ -179,12 +181,44 @@ impl ImageBuffer {
             Self::Svg(_) => "svg",
         }
     }
+
+    #[inline]
+    /// Returns the smallest size associated with this entry.
+    fn get_min_size(&self) -> u32 {
+        match self {
+            Self::Png(size) => *size,
+            Self::Svg(sizes) => sizes[0]
+        }
+    }
+
+    #[inline]
+    fn write_sizes(&self, w: &mut Vec<u8>) -> io::Result<()> {
+        match self {
+            BuffInfo::Png(size) => write!(w, "{0}x{0} ", size)?,
+            BuffInfo::Svg(sizes) => for size in sizes {
+                write!(w, "{0}x{0} ", size)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
-impl AsRef<[u8]> for ImageBuffer {
-    fn as_ref(&self) -> &[u8] {
-        match self {
-            Self::Png(buff) | Self::Svg(buff) => buff.as_ref(),
+#[inline]
+fn insert_vacant<'a>(entry: VacantEntry<'a, Vec<u8>, BuffInfo>, source: &SourceImage, size: u32) {
+    let _ = match source {
+        SourceImage::Raster(_) => entry.insert(BuffInfo::Png(size)),
+        SourceImage::Svg(_) => entry.insert(BuffInfo::Svg(vec![size]))
+    };
+}
+
+#[inline]
+fn insert_occupied<'a>(entry: OccupiedEntry<'a, Vec<u8>, BuffInfo>, size: u32) {
+    match entry.into_mut() {
+        BuffInfo::Png(_) => unreachable!("This error should have been escaped earlier"),
+        BuffInfo::Svg(ref mut vec) => {
+            vec.push(size);
+            vec.sort();
         }
     }
 }
@@ -193,23 +227,23 @@ fn get_image_buffer<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
     filter: F,
     source: &SourceImage,
     size: u32,
-) -> Result<ImageBuffer, Error<FaviconKey>> {
+) -> Result<Vec<u8>, Error<FaviconKey>> {
     match source {
         SourceImage::Raster(_) => {
             get_png_buffer(resample::safe_filter(filter, source, size)?, size)
         }
-        SourceImage::Svg(svg) => Ok(ImageBuffer::Svg(svg.to_string(XML_OPTS).into_bytes())),
+        SourceImage::Svg(svg) => Ok(svg.to_string(XML_OPTS).into_bytes()),
     }
 }
 
-fn get_png_buffer(image: DynamicImage, size: u32) -> Result<ImageBuffer, Error<FaviconKey>> {
+fn get_png_buffer(image: DynamicImage, size: u32) -> Result<Vec<u8>, Error<FaviconKey>> {
     let data = image.to_rgba().into_raw();
     // Encode the pixel data as PNG and store it in a Vec<u8>
     let mut output = Vec::with_capacity(data.len());
     let encoder = PNGEncoder::new(&mut output);
     encoder.encode(&data, size, size, ColorType::RGBA(8))?;
 
-    Ok(ImageBuffer::Png(output))
+    Ok(output)
 }
 
 /// Helper function to append a buffer to a `.tar` file

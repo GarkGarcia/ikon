@@ -197,10 +197,8 @@ impl BuffInfo {
     fn write_sizes(&self, w: &mut Vec<u8>) -> io::Result<()> {
         match self {
             BuffInfo::Png(size) => write!(w, "{0}x{0} ", size)?,
-            BuffInfo::Svg(sizes) => {
-                for size in sizes {
-                    write!(w, "{0}x{0} ", size)?;
-                }
+            BuffInfo::Svg(sizes) => for size in sizes {
+                write!(w, "{0}x{0} ", size)?;
             }
         }
 
@@ -218,12 +216,9 @@ fn insert_vacant<'a>(entry: VacantEntry<'a, Vec<u8>, BuffInfo>, source: &SourceI
 
 #[inline]
 fn insert_occupied<'a>(entry: OccupiedEntry<'a, Vec<u8>, BuffInfo>, size: u32) {
-    match entry.into_mut() {
-        BuffInfo::Png(_) => unreachable!("This error should have been escaped earlier"),
-        BuffInfo::Svg(ref mut vec) => {
-            vec.push(size);
-            vec.sort();
-        }
+    if let BuffInfo::Svg(ref mut vec) = entry.into_mut() {
+        vec.push(size);
+        vec.sort();
     }
 }
 

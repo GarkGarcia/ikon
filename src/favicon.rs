@@ -3,15 +3,16 @@
 extern crate image;
 extern crate tar;
 
-use crate::{resample, AsSize, Error, Icon, SourceImage, STD_CAPACITY};
+use crate::{resample, AsSize, Error, Icon, SourceImage};
 use image::{png::PNGEncoder, ColorType, DynamicImage};
 use resvg::usvg::{XmlIndent, XmlOptions};
 use std::{
+    convert::TryFrom,
     collections::hash_map::{Entry, HashMap, OccupiedEntry, VacantEntry},
-    fs::File,
+    fs::{DirBuilder, File},
     io::{self, Write},
-    num::NonZeroU32,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 const XML_OPTS: XmlOptions = XmlOptions {
@@ -37,8 +38,10 @@ pub struct Favicon {
     entries: Vec<u32>,
 }
 
-/// The _key type_ for `FavIcon`.
-pub type FaviconKey = NonZeroU32;
+/// The _key type_ for `FavIcon`. Note that `Key(0)` represents
+/// a _65536x65536_ entry.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Key(pub u16);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// Information about the file format and the
@@ -94,12 +97,12 @@ impl Favicon {
 }
 
 impl Icon for Favicon {
-    type Key = FaviconKey;
+    type Key = Key;
 
-    fn new() -> Self {
+    fn with_capacity(capacity: usize) -> Self {
         Favicon {
-            source_map: HashMap::with_capacity(STD_CAPACITY),
-            entries: Vec::with_capacity(STD_CAPACITY),
+            source_map: HashMap::with_capacity(capacity),
+            entries: Vec::with_capacity(capacity),
         }
     }
 
@@ -141,29 +144,68 @@ impl Icon for Favicon {
         write_data(&mut tar_builder, helper.as_ref(), path!("helper.html"))
     }
 
-    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()> {
-        if path.as_ref().is_file() {
-            let mut file = File::create(path.as_ref())?;
+    fn save<P: AsRef<Path>>(&mut self, base_path: &P) -> io::Result<()> {
+        if base_path.as_ref().is_file() {
+            let mut file = File::create(base_path.as_ref())?;
             self.write(&mut file)
         } else {
+            let container = base_path.as_ref().join("icons/");
+
+            if !container.exists() {
+                let mut builder = DirBuilder::new();
+                builder.recursive(true).create(container)?;
+            }
+
             let mut i = 0;
 
             for (buff, info) in self.entries() {
                 let path = path!("icons/favicon-{}.{}", i, info.get_extension());
-                save_file(buff.as_ref(), path.as_ref(), "helper.html")?;
+                save_file(buff.as_ref(), base_path, &path)?;
 
                 i += 1;
             }
 
             let helper = self.html_helper()?;
-            save_file(helper.as_ref(), path.as_ref(), "helper.html")
+            save_file(helper.as_ref(), base_path, &"helper.html")
         }
     }
 }
 
-impl AsSize for FaviconKey {
+impl AsSize for Key {
     fn as_size(&self) -> u32 {
-        self.get()
+        if self.0 == 0 {
+            65536
+        } else {
+            self.0 as u32
+        }
+    }
+}
+
+impl TryFrom<u32> for Key {
+    type Error = io::Error;
+
+    fn try_from(val: u32) -> io::Result<Self> {
+        match val {
+            65536 => Ok(Key(0)),
+            0 => Err(io::Error::from(io::ErrorKind::InvalidInput)),
+            n if n < 65536 => Ok(Key(n as u16)),
+            _ => Err(io::Error::from(io::ErrorKind::InvalidInput))
+        }
+    }
+}
+
+impl FromStr for Key {
+    type Err = io::Error;
+
+    fn from_str(s: &str) -> io::Result<Self> {
+        match s {
+            "65536" => Ok(Key(0)),
+            "0" => Err(io::Error::from(io::ErrorKind::InvalidInput)),
+            _ => s
+                .parse::<u16>()
+                .map(Key)
+                .map_err(|_| io::Error::from(io::ErrorKind::InvalidInput)),
+        }
     }
 }
 
@@ -197,8 +239,10 @@ impl BuffInfo {
     fn write_sizes(&self, w: &mut Vec<u8>) -> io::Result<()> {
         match self {
             BuffInfo::Png(size) => write!(w, "{0}x{0} ", size)?,
-            BuffInfo::Svg(sizes) => for size in sizes {
-                write!(w, "{0}x{0} ", size)?;
+            BuffInfo::Svg(sizes) => {
+                for size in sizes {
+                    write!(w, "{0}x{0} ", size)?;
+                }
             }
         }
 
@@ -226,7 +270,7 @@ fn get_image_buffer<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
     filter: F,
     source: &SourceImage,
     size: u32,
-) -> Result<Vec<u8>, Error<FaviconKey>> {
+) -> Result<Vec<u8>, Error<Key>> {
     match source {
         SourceImage::Raster(_) => {
             get_png_buffer(resample::safe_filter(filter, source, size)?, size)
@@ -235,7 +279,7 @@ fn get_image_buffer<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
     }
 }
 
-fn get_png_buffer(image: DynamicImage, size: u32) -> Result<Vec<u8>, Error<FaviconKey>> {
+fn get_png_buffer(image: DynamicImage, size: u32) -> Result<Vec<u8>, Error<Key>> {
     let data = image.to_rgba().into_raw();
     // Encode the pixel data as PNG and store it in a Vec<u8>
     let mut output = Vec::with_capacity(data.len());
@@ -259,8 +303,12 @@ fn write_data<W: Write>(
 }
 
 /// Helper function to write a buffer to a location on disk.
-fn save_file(data: &[u8], base_path: &Path, path: &str) -> io::Result<()> {
-    let path = base_path.join(path);
+fn save_file<P1: AsRef<Path>, P2: AsRef<Path>>(
+    data: &[u8],
+    base_path: &P1,
+    path: &P2,
+) -> io::Result<()> {
+    let path = base_path.as_ref().join(path);
     let mut file = File::create(path)?;
 
     file.write_all(data)

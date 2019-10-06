@@ -2,9 +2,11 @@
 
 extern crate icns;
 
-use crate::{Icon, AsSize, SourceImage, Error, STD_CAPACITY};
+use crate::{Icon, AsSize, SourceImage, Error};
 use image::{DynamicImage, GenericImageView};
 use std::{
+    str::FromStr,
+    convert::TryFrom,
     fmt::{self, Debug, Formatter},
     io::{self, Write},
 };
@@ -15,24 +17,25 @@ pub struct Icns {
     keys: Vec<u32>,
 }
 
+/// The _key-type_ for `Icns`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum IcnsKey {
-    RGBA16,
-    RGBA32,
-    RGBA64,
-    RGBA128,
-    RGBA256,
-    RGBA512,
-    RGBA1024
+pub enum Key {
+    Rgba16,
+    Rgba32,
+    Rgba64,
+    Rgba128,
+    Rgba256,
+    Rgba512,
+    Rgba1024
 }
 
 impl Icon for Icns {
-    type Key = IcnsKey;
+    type Key = Key;
 
-    fn new() -> Self {
+    fn with_capacity(capacity: usize) -> Self {
         Icns {
-            icon_family: icns::IconFamily::new(),
-            keys: Vec::with_capacity(STD_CAPACITY),
+            icon_family: icns::IconFamily { elements: Vec::with_capacity(capacity) },
+            keys: Vec::with_capacity(capacity),
         }
     }
 
@@ -115,31 +118,50 @@ impl Debug for Icns {
     }
 }
 
-impl IcnsKey {
-    pub fn from(size: u32) -> Option<Self> {
-        match size {
-            1024 => Some(Self::RGBA1024),
-            512 => Some(Self::RGBA512),
-            256 => Some(Self::RGBA256),
-            128 => Some(Self::RGBA128),
-            64 => Some(Self::RGBA64),
-            32 => Some(Self::RGBA32),
-            16 => Some(Self::RGBA16),
-            _ => None
+impl AsSize for Key {
+    fn as_size(&self) -> u32 {
+        match self {
+            Self::Rgba1024 => 1024,
+            Self::Rgba512 => 512,
+            Self::Rgba256 => 256,
+            Self::Rgba128 => 128,
+            Self::Rgba64 => 64,
+            Self::Rgba32 => 32,
+            Self::Rgba16 => 16
         }
     }
 }
 
-impl AsSize for IcnsKey {
-    fn as_size(&self) -> u32 {
-        match self {
-            Self::RGBA1024 => 1024,
-            Self::RGBA512 => 512,
-            Self::RGBA256 => 256,
-            Self::RGBA128 => 128,
-            Self::RGBA64 => 64,
-            Self::RGBA32 => 32,
-            Self::RGBA16 => 16
+impl TryFrom<u32> for Key {
+    type Error = io::Error;
+
+    fn try_from(size: u32) -> io::Result<Self> {
+        match size {
+            1024 => Ok(Self::Rgba1024),
+            512 => Ok(Self::Rgba512),
+            256 => Ok(Self::Rgba256),
+            128 => Ok(Self::Rgba128),
+            64 => Ok(Self::Rgba64),
+            32 => Ok(Self::Rgba32),
+            16 => Ok(Self::Rgba16),
+            _ => Err(io::Error::from(io::ErrorKind::InvalidInput))
+        }
+    }
+}
+
+impl FromStr for Key {
+    type Err = io::Error;
+
+    fn from_str(s: &str) -> io::Result<Self> {
+        match s {
+            "1024" => Ok(Self::Rgba1024),
+            "512" => Ok(Self::Rgba512),
+            "256" => Ok(Self::Rgba256),
+            "128" => Ok(Self::Rgba128),
+            "64" => Ok(Self::Rgba64),
+            "32" => Ok(Self::Rgba32),
+            "16" => Ok(Self::Rgba16),
+            _ => Err(io::Error::from(io::ErrorKind::InvalidInput))
         }
     }
 }

@@ -75,7 +75,7 @@ pub extern crate image;
 pub extern crate resvg;
 
 use crate::usvg::Tree;
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, ImageError};
 pub use resvg::{raqote, usvg};
 use std::{
     convert::From,
@@ -89,7 +89,6 @@ use std::{
 pub mod favicon;
 pub mod icns;
 pub mod ico;
-pub mod png_sequence;
 pub mod resample;
 #[cfg(test)]
 mod test;
@@ -101,6 +100,7 @@ const INVALID_DIM_ERR: &str =
 /// A generic representation of an icon encoder.
 pub trait Icon
 where
+    Self: Sized,
     Self::Key: AsSize,
 {
     type Key;
@@ -111,7 +111,20 @@ where
     /// ```rust
     /// let icon = Ico::new();
     /// ```
-    fn new() -> Self;
+    fn new() -> Self {
+        Self::with_capacity(STD_CAPACITY)
+    }
+
+    /// Constructs a new, empty `Icon` with the specified capacity.
+    /// The `capacity` argument designates the number of entries
+    /// that will be allocated.
+    ///
+    /// # Example
+    /// ```rust
+    /// // Preallocate 7 entries
+    /// let icon = Ico::with_capacity(7);
+    /// ```
+    fn with_capacity(capacity: usize) -> Self;
 
     /// Adds an individual entry to the icon.
     ///
@@ -275,26 +288,32 @@ pub enum Error<K: AsSize> {
 impl SourceImage {
     /// Attempts to create a `SourceImage` from a given path.
     ///
-    /// The `SourceImage::from::<image::DynamicImage>` and `SourceImage::from::<usvg::Tree>`
-    /// methods should always be preferred.
-    ///
     /// # Return Value
-    /// * Returns `Some(src)` if the file indicated by the `path` argument could be
+    /// * Returns `Ok(src)` if the file indicated by the `path` argument could be
     ///   successfully parsed into an image.
-    /// * Returns `None` otherwise.
+    /// * Returns `Err(io::Error::from(io::ErrorKind::Other))` if the image allocation failed
+    ///   or if the file was not able to be accessed.
+    /// * Returns `Err(io::Error::from(io::ErrorKind::InvalidInput))` if the image format is not
+    ///   supported by `icon_baker`.
+    /// * Returns `Err(io::Error::from(io::ErrorKind::InvalidData))` otherwise.
     ///
     /// # Example
     /// ```rust
     /// let img = SourceImage::open("source.png")?;
     /// ```
-    pub fn open<P: AsRef<Path>>(path: P) -> Option<Self> {
-        if let Ok(ras) = image::open(&path) {
-            return Some(SourceImage::from(ras));
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
+        match image::open(&path) {
+            Ok(img) => Ok(SourceImage::from(img)),
+            Err(ImageError::InsufficientMemory) => Err(io::Error::from(io::ErrorKind::Other)),
+            Err(ImageError::IoError(err)) => Err(err),
+            Err(ImageError::UnsupportedError(_)) => match Tree::from_file(path, &usvg::Options::default()) {
+                Ok(img) => Ok(SourceImage::from(img)),
+                Err(usvg::Error::InvalidFileSuffix) => Err(io::Error::from(io::ErrorKind::InvalidInput)),
+                Err(usvg::Error::FileOpenFailed) => Err(io::Error::from(io::ErrorKind::Other)),
+                _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
+            },
+            _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
         }
-
-        Tree::from_file(&path, &usvg::Options::default())
-            .ok()
-            .map(|svg| SourceImage::from(svg))
     }
 
     /// Returns the width of the original image in pixels.

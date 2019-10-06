@@ -2,13 +2,14 @@
 
 extern crate ico;
 
-use crate::{resample, AsSize, Error, Icon, SourceImage, STD_CAPACITY};
+use crate::{resample, AsSize, Error, Icon, SourceImage};
 use image::DynamicImage;
 use std::{
+    convert::TryFrom,
+    str::FromStr,
     fmt::{self, Debug, Formatter},
     io::{self, Write},
     result,
-    num::NonZeroU8
 };
 
 /// An ecoder for the `.ico` file format.
@@ -18,15 +19,18 @@ pub struct Ico {
     keys: Vec<u32>,
 }
 
-pub type IcoKey = NonZeroU8;
+/// The _key-type_ for `Ico`. Note that `Key(0)` represents
+/// a _256x256_ entry.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Key(pub u8);
 
 impl Icon for Ico {
-    type Key = IcoKey;
+    type Key = Key;
 
-    fn new() -> Self {
+    fn with_capacity(capacity: usize) -> Self {
         Ico {
             icon_dir: ico::IconDir::new(ico::ResourceType::Icon),
-            keys: Vec::with_capacity(STD_CAPACITY),
+            keys: Vec::with_capacity(capacity),
         }
     }
 
@@ -75,8 +79,39 @@ impl Debug for Ico {
     }
 }
 
-impl AsSize for IcoKey {
+impl AsSize for Key {
     fn as_size(&self) -> u32 {
-        self.get() as u32
+        if self.0 == 0 {
+            256
+        } else {
+            self.0 as u32
+        }
+    }
+}
+
+impl TryFrom<u32> for Key {
+    type Error = io::Error;
+
+    fn try_from(val: u32) -> io::Result<Self> {
+        match val {
+            256 => Ok(Key(0)),
+            0 => Err(io::Error::from(io::ErrorKind::InvalidInput)),
+            n if n < 256 => Ok(Key(n as u8)),
+            _ => Err(io::Error::from(io::ErrorKind::InvalidInput))
+        }
+    }
+}
+
+impl FromStr for Key {
+    type Err = io::Error;
+
+    fn from_str(s: &str) -> io::Result<Self> {
+        match s {
+            "256" => Ok(Key(0)),
+            "0" => Err(io::Error::from(io::ErrorKind::InvalidInput)),
+            _ => s.parse::<u8>()
+                .map(Key)
+                .map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))
+        }
     }
 }

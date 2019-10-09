@@ -102,8 +102,10 @@ pub trait Icon
 where
     Self: Sized,
     Self::Key: AsSize,
+    Self::WriteOptions: Default
 {
     type Key;
+    type WriteOptions;
 
     /// Creates a new icon.
     ///
@@ -237,7 +239,7 @@ where
     ///     icon.write(file)
     /// }
     /// ```
-    fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()>;
+    fn write<W: Write>(&mut self, w: &mut W, options: &Self::WriteOptions) -> io::Result<()>;
 
     /// Writes the contents of the icon to a file on disk.
     ///
@@ -255,9 +257,13 @@ where
     ///     icon.save("./output/")
     /// }
     /// ```
-    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()> {
+    fn save<P: AsRef<Path>>(
+        &mut self,
+        path: &P,
+        options: &Self::WriteOptions
+    ) -> io::Result<()> {
         let mut file = File::create(path.as_ref())?;
-        self.write(&mut file)
+        self.write(&mut file, options)
     }
 }
 

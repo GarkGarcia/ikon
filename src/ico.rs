@@ -26,6 +26,7 @@ pub struct Key(pub u8);
 
 impl Icon for Ico {
     type Key = Key;
+    type WriteOptions = ();
 
     fn with_capacity(capacity: usize) -> Self {
         Ico {
@@ -56,7 +57,7 @@ impl Icon for Ico {
         Ok(())
     }
 
-    fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
+    fn write<W: Write>(&mut self, w: &mut W, _: &()) -> io::Result<()> {
         self.icon_dir.write(w)
     }
 }

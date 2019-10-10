@@ -101,11 +101,9 @@ const INVALID_DIM_ERR: &str =
 pub trait Icon
 where
     Self: Sized,
-    Self::Key: AsSize,
-    Self::WriteOptions: Default
+    Self::Key: AsSize
 {
     type Key;
-    type WriteOptions;
 
     /// Creates a new icon.
     ///
@@ -239,7 +237,7 @@ where
     ///     icon.write(file)
     /// }
     /// ```
-    fn write<W: Write>(&mut self, w: &mut W, options: &Self::WriteOptions) -> io::Result<()>;
+    fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()>;
 
     /// Writes the contents of the icon to a file on disk.
     ///
@@ -257,13 +255,9 @@ where
     ///     icon.save("./output/")
     /// }
     /// ```
-    fn save<P: AsRef<Path>>(
-        &mut self,
-        path: &P,
-        options: &Self::WriteOptions
-    ) -> io::Result<()> {
+    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()> {
         let mut file = File::create(path.as_ref())?;
-        self.write(&mut file, options)
+        self.write(&mut file)
     }
 }
 

@@ -31,7 +31,6 @@ pub enum Key {
 
 impl Icon for Icns {
     type Key = Key;
-    type WriteOptions = ();
 
     fn with_capacity(capacity: usize) -> Self {
         Icns {
@@ -68,7 +67,7 @@ impl Icon for Icns {
         Ok(())
     }
 
-    fn write<W: Write>(&mut self, w: &mut W, _: &()) -> io::Result<()> {
+    fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         self.icon_family.write(w)
     }
 }

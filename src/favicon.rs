@@ -5,7 +5,7 @@ extern crate tar;
 
 use crate::{resample, AsSize, Error, Icon, SourceImage};
 use image::{png::PNGEncoder, ColorType, DynamicImage};
-use resvg::usvg::{XmlIndent, XmlOptions};
+use resvg::usvg::{self, XmlIndent, XmlOptions};
 use std::{
     convert::TryFrom,
     collections::hash_map::{HashMap, Entry},
@@ -39,18 +39,14 @@ pub struct Favicon {
     pngs: HashMap<u32, Vec<u8>>,
     svgs: HashMap<Vec<u8>, Vec<u32>>,
     svg_entries: Vec<u32>,
+    include_apple_touch_helper: bool,
+    include_chrome_app_helper: bool
 }
 
 /// The _key type_ for `FavIcon`. Note that `Key(0)` represents
 /// a _65536x65536_ entry.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Key(pub u16);
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct WriteOptions {
-    include_apple_touch_helper: bool,
-    include_chrome_app_helper: bool
-}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// An iterator over the sizes of a `Favicon`
@@ -81,9 +77,21 @@ impl Favicon {
         self.pngs.len() + self.svg_entries.len()
     }
 
+    #[inline]
+    pub fn apple_touch(&mut self, b: bool) -> &mut Self {
+        self.include_apple_touch_helper = b;
+        self
+    }
+
+    #[inline]
+    pub fn chrome_app(&mut self, b: bool) -> &mut Self {
+        self.include_chrome_app_helper = b;
+        self
+    }
+
     /// Returns a buffer containing _HTML_ link tags to assist on
     /// the creating of the icon.
-    pub fn html_helper(&self, options: &WriteOptions) -> io::Result<Vec<u8>> {
+    pub fn html_helper(&self) -> io::Result<Vec<u8>> {
         let mut helper = Vec::with_capacity(self.len() * 180);
         let mut i = 0;
 
@@ -94,7 +102,7 @@ impl Favicon {
 
             write_link_tag(&mut helper, "icon", res_type, i, extension, &mut sizes)?;
 
-            if options.include_apple_touch_helper {
+            if self.include_apple_touch_helper {
                 let mut it = sizes
                     .filter(|size| APPLE_TOUCH_SIZES.contains(&size));
 
@@ -111,7 +119,7 @@ impl Favicon {
             i += 1;
         }
 
-        if options.include_chrome_app_helper {
+        if self.include_chrome_app_helper {
             write!(helper, "<link rel=\"manifest\" href=\"manifest.json\">\n")?;
         }
 
@@ -132,14 +140,47 @@ impl Favicon {
 
         // Sort by the minimun size associated with the file
         entries.sort_by_key(|(info, _)| info.min_size());
-        Entries{ index: 0, entries }
+        Entries { index: 0, entries }
     }
 
-    fn save_to_dir<P: AsRef<Path>>(
-        &self,
-        base_path: &P,
-        options: &WriteOptions
-    ) -> io::Result<()> {
+    #[inline]
+    fn add_raster<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
+        &mut self,
+        filter: F,
+        source: &SourceImage,
+        key: Key
+    ) -> Result<(), Error<Key>> {
+        let size = key.as_size();
+        let icon = resample::apply(filter, source, size)?;
+        let buf = get_png_buffer(&icon, size)?;
+
+        match self.pngs.entry(size) {
+            Entry::Occupied(_) => Err(Error::AlreadyIncluded(key)),
+            Entry::Vacant(entry) => {
+                let _ = entry.insert(buf);
+                Ok(())
+            }
+        }
+    }
+
+    #[inline]
+    fn add_svg(&mut self, svg: &usvg::Tree, key: Key) -> Result<(), Error<Key>> {
+        let size = key.as_size();
+
+        if self.svg_entries.contains(&size) {
+            Err(Error::AlreadyIncluded(key))
+        } else {
+            let buf = svg.to_string(XML_OPTS).into_bytes();
+            let entry = self.svgs.entry(buf).or_default();
+
+            entry.push(size);
+            self.svg_entries.push(size);
+
+            Ok(())
+        }
+    }
+
+    fn save_to_dir<P: AsRef<Path>>(&self, base_path: &P) -> io::Result<()> {
         let container = base_path.as_ref().join("icons/");
 
         if !container.exists() {
@@ -156,20 +197,21 @@ impl Favicon {
             i += 1;
         }
 
-        let helper = self.html_helper(options)?;
+        let helper = self.html_helper()?;
         save_file(helper.as_ref(), base_path, &"helper.html")
     }
 }
 
 impl Icon for Favicon {
     type Key = Key;
-    type WriteOptions = WriteOptions;
 
     fn with_capacity(capacity: usize) -> Self {
         Favicon {
             pngs: HashMap::with_capacity(capacity),
             svgs: HashMap::with_capacity(capacity),
             svg_entries: Vec::with_capacity(capacity),
+            include_apple_touch_helper: false,
+            include_chrome_app_helper: false
         }
     }
 
@@ -179,41 +221,13 @@ impl Icon for Favicon {
         source: &SourceImage,
         key: Self::Key,
     ) -> Result<(), Error<Self::Key>> {
-        let size = key.as_size();
-
         match source {
-            SourceImage::Raster(_) => {
-                let icon = resample::safe_filter(filter, source, size)?;
-                let buf = get_png_buffer(&icon, size)?;
-
-                match self.pngs.entry(size) {
-                    Entry::Occupied(_) => return Err(Error::AlreadyIncluded(key)),
-                    Entry::Vacant(entry) => {
-                        let _ = entry.insert(buf);
-                    }
-                }
-            },
-            SourceImage::Svg(svg) => {
-                if self.svg_entries.contains(&size) {
-                    return Err(Error::AlreadyIncluded(key));
-                } else {
-                    let buf = svg.to_string(XML_OPTS).into_bytes();
-                    let entry = self.svgs.entry(buf).or_default();
-
-                    entry.push(size);
-                    self.svg_entries.push(size);
-                }
-            }
+            SourceImage::Raster(_) => self.add_raster(filter, source, key),
+            SourceImage::Svg(svg) => self.add_svg(svg, key)
         }
-
-        Ok(())
     }
 
-    fn write<W: Write>(
-        &mut self,
-        w: &mut W,
-        options: &Self::WriteOptions
-    ) -> io::Result<()> {
+    fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         let mut tar_builder = tar::Builder::new(w);
         let mut i = 0;
 
@@ -224,20 +238,16 @@ impl Icon for Favicon {
             i += 1;
         }
 
-        let helper = self.html_helper(options)?;
+        let helper = self.html_helper()?;
         write_data(&mut tar_builder, helper.as_ref(), path!("helper.html"))
     }
 
-    fn save<P: AsRef<Path>>(
-        &mut self,
-        base_path: &P,
-        options: &Self::WriteOptions
-    ) -> io::Result<()> {
+    fn save<P: AsRef<Path>>(&mut self, base_path: &P) -> io::Result<()> {
         if base_path.as_ref().is_file() {
             let mut file = File::create(base_path.as_ref())?;
-            self.write(&mut file, options)
+            self.write(&mut file)
         } else {
-            self.save_to_dir(base_path, options)
+            self.save_to_dir(base_path)
         }
     }
 }
@@ -277,21 +287,6 @@ impl FromStr for Key {
                 .map(Key)
                 .map_err(|_| io::Error::from(io::ErrorKind::InvalidInput)),
         }
-    }
-}
-
-impl WriteOptions {
-    pub fn new(apple_touch: bool, chrome: bool) -> Self {
-        WriteOptions {
-            include_apple_touch_helper: apple_touch,
-            include_chrome_app_helper: chrome
-        }
-    }
-}
-
-impl Default for WriteOptions {
-    fn default() -> Self {
-        WriteOptions::new(false, false)
     }
 }
 

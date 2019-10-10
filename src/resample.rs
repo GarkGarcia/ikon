@@ -100,7 +100,7 @@ fn draw_target_to_rgba(mut surface: DrawTarget, size: u32) -> io::Result<Dynamic
 
 /// Aplies a resampling filter to a source and checks if the outputted dimensions match
 /// the ones specified by `size`.
-pub(crate) fn safe_filter<
+pub(crate) fn apply<
     F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>,
     E: AsSize + Debug + Eq
 >(

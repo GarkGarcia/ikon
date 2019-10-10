@@ -65,7 +65,7 @@ fn test_ico() {
         panic!("Should fail.");
     }
 
-    if let Err(err) = icon.write(&mut file, &()) {
+    if let Err(err) = icon.write(&mut file) {
         panic!("{:?}", err);
     }
 }
@@ -86,7 +86,7 @@ fn test_icns() {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.write(&mut file, &()) {
+    if let Err(err) = icon.write(&mut file) {
         panic!("{:?}", err);
     }
 }
@@ -109,7 +109,7 @@ fn test_favicon() {
         panic!("{:?}", err);
     }
 
-    if let Err(err) = icon.save(&path, &favicon::WriteOptions::default()) {
+    if let Err(err) = icon.save(&path) {
         panic!("{:?}", err);
     }
 }

@@ -26,7 +26,6 @@ pub struct Key(pub u8);
 
 impl Icon for Ico {
     type Key = Key;
-    type WriteOptions = ();
 
     fn with_capacity(capacity: usize) -> Self {
         Ico {
@@ -47,7 +46,7 @@ impl Icon for Ico {
             return Err(Error::AlreadyIncluded(key));
         }
 
-        let icon = resample::safe_filter(filter, source, size)?;
+        let icon = resample::apply(filter, source, size)?;
         let data = icon.to_rgba().into_vec();
         let image = ico::IconImage::from_rgba_data(size, size, data);
 
@@ -57,7 +56,7 @@ impl Icon for Ico {
         Ok(())
     }
 
-    fn write<W: Write>(&mut self, w: &mut W, _: &()) -> io::Result<()> {
+    fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
         self.icon_dir.write(w)
     }
 }

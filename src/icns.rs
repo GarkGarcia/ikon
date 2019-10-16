@@ -39,6 +39,10 @@ impl Icon for Icns {
         }
     }
 
+    fn len(&self) -> usize {
+        self.icon_family.elements.len()
+    }
+
     fn add_entry<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
         mut filter: F,

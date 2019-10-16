@@ -34,6 +34,10 @@ impl Icon for Ico {
         }
     }
 
+    fn len(&self) -> usize {
+        self.icon_dir.entries().len()
+    }
+
     fn add_entry<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,

@@ -8,7 +8,7 @@ use image::{png::PNGEncoder, ColorType, DynamicImage};
 use resvg::usvg::{self, XmlIndent, XmlOptions};
 use std::{
     convert::TryFrom,
-    collections::hash_map::{HashMap, Entry},
+    collections::{hash_map::{HashMap, Entry}, btree_set::BTreeSet},
     fs::{DirBuilder, File},
     io::{self, Write},
     path::{Path, PathBuf},
@@ -38,9 +38,9 @@ macro_rules! path {
 pub struct Favicon {
     pngs: HashMap<u32, Vec<u8>>,
     svgs: HashMap<Vec<u8>, Vec<u32>>,
-    svg_entries: Vec<u32>,
+    svg_entries: BTreeSet<u32>,
     include_apple_touch_helper: bool,
-    include_chrome_app_helper: bool
+    include_pwa_helper: bool
 }
 
 /// The _key type_ for `FavIcon`. Note that `Key(0)` represents
@@ -73,19 +73,55 @@ enum BufInfo<'a> {
 }
 
 impl Favicon {
-    fn len(&self) -> usize {
-        self.pngs.len() + self.svg_entries.len()
-    }
-
     #[inline]
+    /// Indicates that the outputted _html-helper_ should contain link
+    /// tags for _[apple-touch icons](https://mathiasbynens.be/notes/touch-icons)_.
+    /// 
+    /// This option defaults to `false`.
+    /// 
+    /// # Example
+    /// 
+    /// ### Code
+    /// 
+    /// ```rust
+    /// let fav = Favicon::new().apple_touch(true);
+    /// ```
+    /// 
+    /// ### Html Helper
+    /// 
+    /// ```html
+    /// <link rel="apple-touch-icon-precomposed" sizes="196x196" href="icons/favicon-0.png">
+    /// <link rel="icon" sizes="196x196" href="icons/favicon-0.png">
+    /// ```
     pub fn apple_touch(&mut self, b: bool) -> &mut Self {
         self.include_apple_touch_helper = b;
         self
     }
 
     #[inline]
-    pub fn chrome_app(&mut self, b: bool) -> &mut Self {
-        self.include_chrome_app_helper = b;
+    /// Indicates that the output of `self.write` or
+    /// `self.save` should contain a `manifest.webmanifest`
+    /// file to assist on creating
+    /// _[PWA icons](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Installable_PWAs)_.
+    /// 
+    /// This option defaults to `false`.
+    /// 
+    /// # Example
+    /// 
+    /// ### Code
+    /// 
+    /// ```rust
+    /// let fav = Favicon::new().web_app(true);
+    /// ```
+    /// 
+    /// ### Html Helper
+    /// 
+    /// ```html
+    /// ...
+    /// <link rel="manifest" href="manifest.webmanifest">
+    /// ```
+    pub fn web_app(&mut self, b: bool) -> &mut Self {
+        self.include_pwa_helper = b;
         self
     }
 
@@ -119,11 +155,39 @@ impl Favicon {
             i += 1;
         }
 
-        if self.include_chrome_app_helper {
-            write!(helper, "<link rel=\"manifest\" href=\"manifest.json\">\n")?;
+        Ok(helper)
+    }
+
+    /// Returns a buffer containing a _JSON_ helper for web manisfests.
+    pub fn manifest(&self) -> io::Result<Vec<u8>> {
+        // TODO Preallocate this
+        let mut manifest = Vec::new();
+        let mut i = 0;
+
+        write!(manifest, "{{\n    \"icons\": [\n")?;
+
+        for (info, _) in self.entries() {
+            write!(
+                manifest,
+                "        {{\n            \"src\": \"icons/favicon-{}.{}\",\n            \"sizes\": \"",
+                i,
+                info.extension()
+            )?;
+
+            info.write_sizes(&mut manifest)?;
+
+            write!(
+                manifest,
+                ",\n            \"type\": \"{}\"\n        }},\n",
+                info.res_type()
+            )?;
+
+            i += 1;
         }
 
-        Ok(helper)
+        write!(manifest, "    ],\n}}")?;
+
+        Ok(manifest)
     }
 
     /// Returns the `Favicon`'s entries sorted by size.
@@ -167,15 +231,13 @@ impl Favicon {
     fn add_svg(&mut self, svg: &usvg::Tree, key: Key) -> Result<(), Error<Key>> {
         let size = key.as_size();
 
-        if self.svg_entries.contains(&size) {
+        if !self.svg_entries.insert(size) {
             Err(Error::AlreadyIncluded(key))
         } else {
             let buf = svg.to_string(XML_OPTS).into_bytes();
             let entry = self.svgs.entry(buf).or_default();
 
             entry.push(size);
-            self.svg_entries.push(size);
-
             Ok(())
         }
     }
@@ -197,7 +259,15 @@ impl Favicon {
             i += 1;
         }
 
-        let helper = self.html_helper()?;
+        let mut helper = self.html_helper()?;
+
+        if self.include_pwa_helper {
+            write!(helper, "<link rel=\"manifest\" href=\"manifest.webmanifest\">\n")?;
+
+            let manifest = self.manifest()?;
+            save_file(manifest.as_ref(), base_path, &"manifest.webmanifest")?;
+        }
+
         save_file(helper.as_ref(), base_path, &"helper.html")
     }
 }
@@ -208,11 +278,15 @@ impl Icon for Favicon {
     fn with_capacity(capacity: usize) -> Self {
         Favicon {
             pngs: HashMap::with_capacity(capacity),
-            svgs: HashMap::with_capacity(capacity),
-            svg_entries: Vec::with_capacity(capacity),
+            svgs: HashMap::new(),
+            svg_entries: BTreeSet::new(),
             include_apple_touch_helper: false,
-            include_chrome_app_helper: false
+            include_pwa_helper: false
         }
+    }
+
+    fn len(&self) -> usize {
+        self.pngs.len() + self.svg_entries.len()
     }
 
     fn add_entry<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
@@ -238,7 +312,15 @@ impl Icon for Favicon {
             i += 1;
         }
 
-        let helper = self.html_helper()?;
+        let mut helper = self.html_helper()?;
+
+        if self.include_pwa_helper {
+            write!(helper, "<link rel=\"manifest\" href=\"manifest.webmanifest\">\n")?;
+
+            let manifest = self.manifest()?;
+            write_data(&mut tar_builder, manifest.as_ref(), path!("manifest.webmanifest"))?;
+        }
+
         write_data(&mut tar_builder, helper.as_ref(), path!("helper.html"))
     }
 
@@ -366,6 +448,22 @@ impl<'a> BufInfo<'a> {
             }
         }
     }
+
+    fn write_sizes<W: Write>(&self, w: &mut W) -> io::Result<()> {
+        let mut it = self.sizes();
+
+        if let Some(size) = it.next() {
+            write!(w, "{0}x{0}", size)?;
+    
+            while let Some(size) = it.next() {
+                write!(w, " {0}x{0}", size)?;
+            }
+        } else {
+            panic!("`self.sizes()` should not be empty");
+        }
+    
+        Ok(())
+    }
 }
 
 fn write_link_tag<W: Write, I: Iterator<Item = u32>>(
@@ -376,6 +474,14 @@ fn write_link_tag<W: Write, I: Iterator<Item = u32>>(
     extension: &str,
     it: &mut I
 ) -> io::Result<()> {
+
+    write!(
+        w,
+        "<link rel=\"{0}\" type=\"{1}\" sizes=\"",
+        rel, res_type
+    )?;
+
+    
     if let Some(size) = it.next() {
         write!(
             w,

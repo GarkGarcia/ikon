@@ -121,10 +121,13 @@ where
     ///
     /// # Example
     /// ```rust
-    /// // Preallocate 7 entries
+    /// // Preallocate 7 entries:
     /// let icon = Ico::with_capacity(7);
     /// ```
     fn with_capacity(capacity: usize) -> Self;
+
+    /// Returns the number of _entries_ of the icon.
+    fn len(&self) -> usize;
 
     /// Adds an individual entry to the icon.
     ///

@@ -121,12 +121,11 @@ where
     ///
     /// # Example
     /// ```rust
-    /// // Preallocate 7 entries:
-    /// let icon = Ico::with_capacity(7);
+    /// let icon = Ico::with_capacity(5);
     /// ```
     fn with_capacity(capacity: usize) -> Self;
 
-    /// Returns the number of _entries_ of the icon.
+    /// Returns the number of _entries_ contained in the icon.
     fn len(&self) -> usize;
 
     /// Adds an individual entry to the icon.
@@ -155,11 +154,9 @@ where
     ///  
     /// fn example() -> Result<(), Error> {
     ///     let icon = Ico::new();
+    ///     let src = SourceImage::open("image.svg")?;
     ///
-    ///     match SourceImage::from_path("image.svg") {
-    ///         Some(img) => icon.add_entry(resample::linear, &img, 32),
-    ///         None      => Ok(())
-    ///     }
+    ///     icon.add_entry(resample::linear, &img, 32)
     /// }
     /// ```
     fn add_entry<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
@@ -196,15 +193,13 @@ where
     ///  
     /// fn example() -> Result<(), Error> {
     ///     let icon = Icns::new();
+    ///     let src = SourceImage::open("image.svg")?;
     ///
-    ///     match SourceImage::from_path("image.svg") {
-    ///         Some(img) => icon.add_entries(
-    ///             resample::linear,
-    ///             &img,
-    ///             vec![32, 64, 128]
-    ///         ),
-    ///         None => Ok(())
-    ///     }
+    ///     icon.add_entries(
+    ///         resample::linear,
+    ///         &src,
+    ///         vec![32, 64, 128]
+    ///     )
     /// }
     /// ```
     fn add_entries<
@@ -228,11 +223,11 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::png_sequence::PngSequence;
+    /// use icon_baker::favicon::Favicon;
     /// use std::{io, fs::File};
     ///  
     /// fn example() -> io::Result<()> {
-    ///     let icon = PngSequence::new();
+    ///     let icon = Favicon::new();
     ///
     ///     /* Process the icon */
     ///
@@ -264,6 +259,7 @@ where
     }
 }
 
+/// A trait for types that represent the dimesions of an icon.
 pub trait AsSize {
     fn as_size(&self) -> u32;
 }

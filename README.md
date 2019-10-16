@@ -50,32 +50,52 @@ filters are provided in the
 
 ## General Usage
 
+The `Icon::add_entry` can be used to automatically resample
+_source images_ and converts them to _entries_ in an icon.
+
 ```rust
-use icon_baker::{Ico, SourceImage, Icon, Error};
- 
+use icon_baker::{ico::{Ico, Key}, SourceImage, Icon, Error};
+  
 fn example() -> Result<(), Error> {
     let icon = Ico::new();
+    let src = SourceImage::open("image.svg")?;
 
-    match SourceImage::from_path("image.svg") {
-        Some(img) => icon.add_entry(resample::linear, &img, 32),
-        None      => Ok(())
-    }
+    icon.add_entry(resample::linear, &img, Key(32))
 }
 ```
 
-## Writing to a File
+## Writing to Disk
+
+Implementors of the `Icon` trait can be writen to any object
+that inmplements `io::Write` with the `Icon::write` method.
 
 ```rust
-use icon_baker::png_sequence::PngSequence;
+use icon_baker::favicon::Favicon;
 use std::{io, fs::File};
  
 fn example() -> io::Result<()> {
-    let icon = PngSequence::new();
+    let icon = Favicon::new();
 
-    /* Process the icon */
+    // Process the icon ...
 
     let file = File::create("out.icns")?;
     icon.write(file)
+}
+```
+
+Alternativelly, icons can be directly written to a file on
+disk with `Icon::save` method.
+
+```rust
+use icon_baker::favicon::Favicon;
+use std::{io, fs::File};
+ 
+fn example() -> io::Result<()> {
+    let icon = Favicon::new();
+
+    /* Process the icon */
+
+    icon.save("./output/")
 }
 ```
 
@@ -88,7 +108,6 @@ be created using the [`Icon`](https://docs.rs/icon_baker/2.2.0/icon_baker/trait.
 
 * `ico`
 * `icns`
-* `png` sequence (`tar`)
 * _favicon_
 
 ### Icns Support

@@ -208,6 +208,7 @@ impl Favicon {
     }
 
     #[inline]
+    /// Adds a raster entry.
     fn add_raster<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,
@@ -228,6 +229,7 @@ impl Favicon {
     }
 
     #[inline]
+    /// Adds an SVG entry.
     fn add_svg(&mut self, svg: &usvg::Tree, key: Key) -> Result<(), Error<Key>> {
         let size = key.as_size();
 
@@ -242,6 +244,7 @@ impl Favicon {
         }
     }
 
+    /// Saves the _favicon_ to a directory.
     fn save_to_dir<P: AsRef<Path>>(&self, base_path: &P) -> io::Result<()> {
         let container = base_path.as_ref().join("icons/");
 

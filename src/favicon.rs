@@ -81,15 +81,11 @@ impl Favicon {
     /// 
     /// # Example
     /// 
-    /// ### Code
-    /// 
     /// ```rust
     /// let fav = Favicon::new().apple_touch(true);
     /// ```
     /// 
-    /// ### Html Helper
-    /// 
-    /// ```html
+    /// ```xml
     /// <link rel="apple-touch-icon-precomposed" sizes="196x196" href="icons/favicon-0.png">
     /// <link rel="icon" sizes="196x196" href="icons/favicon-0.png">
     /// ```
@@ -108,17 +104,25 @@ impl Favicon {
     /// 
     /// # Example
     /// 
-    /// ### Code
-    /// 
     /// ```rust
     /// let fav = Favicon::new().web_app(true);
     /// ```
     /// 
-    /// ### Html Helper
-    /// 
-    /// ```html
+    /// ```xml
     /// ...
     /// <link rel="manifest" href="manifest.webmanifest">
+    /// ```
+    /// 
+    /// ```json
+    /// {
+    ///     icons: [
+    ///         {
+    ///             src: "icons/favicon-0.png",
+    ///             sizes: "196x196",
+    ///             type: "image/png"
+    ///         }
+    ///     ],
+    /// }
     /// ```
     pub fn web_app(&mut self, b: bool) -> &mut Self {
         self.include_pwa_helper = b;

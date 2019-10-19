@@ -66,8 +66,8 @@ fn example() -> Result<(), Error> {
 
 ## Writing to Disk
 
-Implementors of the `Icon` trait can be writen to any object
-that inmplements `io::Write` with the `Icon::write` method.
+Implementors of the `Icon` trait can be written to any object
+that implements `io::Write` with the `Icon::write` method.
 
 ```rust
 use icon_baker::favicon::Favicon;
@@ -83,7 +83,7 @@ fn example() -> io::Result<()> {
 }
 ```
 
-Alternativelly, icons can be directly written to a file on
+Alternatively, icons can be directly written to a file on
 disk with `Icon::save` method.
 
 ```rust
@@ -178,3 +178,5 @@ or http://opensource.org/licenses/MIT).
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the 
 work by you shall be licensed as above, without any additional terms or conditions.
+
+Feel free to help out! Contributions are welcomed 😃

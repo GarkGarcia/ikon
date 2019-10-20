@@ -138,22 +138,15 @@ impl Favicon {
         for (info, _) in self.entries() {
             let res_type = info.res_type();
             let extension = info.extension();
-            let mut sizes = info.sizes();
 
-            write_link_tag(&mut helper, "icon", res_type, i, extension, &mut sizes)?;
+            write!(helper, "<link rel=\"icon\" type=\"{}\" sizes=\"", res_type)?;
+            info.write_sizes(&mut helper, |_| true)?;
+            write!(helper, "\" href=\"icons/favicon-{}.{}\">\n", i, extension)?;
 
             if self.include_apple_touch_helper {
-                let mut it = sizes
-                    .filter(|size| APPLE_TOUCH_SIZES.contains(&size));
-
-                write_link_tag(
-                    &mut helper,
-                    "apple-touch-icon-precomposed",
-                    res_type,
-                    i,
-                    extension,
-                    &mut it
-                )?;
+                write!(helper, "<link rel=\"apple-touch-icon-precomposed\" type=\"{}\" sizes=\"", res_type)?;
+                info.write_sizes(&mut helper, |size| APPLE_TOUCH_SIZES.contains(&size))?;
+                write!(helper, "\" href=\"icons/favicon-{}.{}\">\n", i, extension)?;
             }
 
             i += 1;
@@ -178,18 +171,22 @@ impl Favicon {
                 info.extension()
             )?;
 
-            info.write_sizes(&mut manifest)?;
+            info.write_sizes(&mut manifest, |_| true)?;
 
             write!(
                 manifest,
-                ",\n            \"type\": \"{}\"\n        }},\n",
+                "\",\n            \"type\": \"{}\"\n        }},\n",
                 info.res_type()
             )?;
 
             i += 1;
         }
 
-        write!(manifest, "    ],\n}}")?;
+        // Remove the last comma
+        manifest.pop();
+        manifest.pop();
+
+        write!(manifest, "\n    ]\n}}")?;
 
         Ok(manifest)
     }
@@ -269,10 +266,10 @@ impl Favicon {
         let mut helper = self.html_helper()?;
 
         if self.include_pwa_helper {
-            write!(helper, "<link rel=\"manifest\" href=\"manifest.webmanifest\">\n")?;
+            write!(helper, "<link rel=\"manifest\" href=\"app.webmanifest\">\n")?;
 
             let manifest = self.manifest()?;
-            save_file(manifest.as_ref(), base_path, &"manifest.webmanifest")?;
+            save_file(manifest.as_ref(), base_path, &"app.webmanifest")?;
         }
 
         save_file(helper.as_ref(), base_path, &"helper.html")
@@ -322,10 +319,10 @@ impl Icon for Favicon {
         let mut helper = self.html_helper()?;
 
         if self.include_pwa_helper {
-            write!(helper, "<link rel=\"manifest\" href=\"manifest.webmanifest\">\n")?;
+            write!(helper, "<link rel=\"manifest\" href=\"app.webmanifest\">\n")?;
 
             let manifest = self.manifest()?;
-            write_data(&mut tar_builder, manifest.as_ref(), path!("manifest.webmanifest"))?;
+            write_data(&mut tar_builder, manifest.as_ref(), path!("app.webmanifest"))?;
         }
 
         write_data(&mut tar_builder, helper.as_ref(), path!("helper.html"))
@@ -456,8 +453,12 @@ impl<'a> BufInfo<'a> {
         }
     }
 
-    fn write_sizes<W: Write>(&self, w: &mut W) -> io::Result<()> {
-        let mut it = self.sizes();
+    fn write_sizes<W: Write, P: FnMut(&u32) -> bool>(
+        &self,
+        w: &mut W,
+        pred: P
+    ) -> io::Result<()> {
+        let mut it = self.sizes().filter(pred);
 
         if let Some(size) = it.next() {
             write!(w, "{0}x{0}", size)?;
@@ -473,44 +474,6 @@ impl<'a> BufInfo<'a> {
     }
 }
 
-fn write_link_tag<W: Write, I: Iterator<Item = u32>>(
-    w: &mut W,
-    rel: &str,
-    res_type: &str,
-    index: usize,
-    extension: &str,
-    it: &mut I
-) -> io::Result<()> {
-
-    write!(
-        w,
-        "<link rel=\"{0}\" type=\"{1}\" sizes=\"",
-        rel, res_type
-    )?;
-
-    
-    if let Some(size) = it.next() {
-        write!(
-            w,
-            "<link rel=\"{0}\" type=\"{1}\" sizes=\"{2}x{2}",
-            rel, res_type, size
-        )?;
-
-        while let Some(size) = it.next() {
-            write!(w, " {0}x{0}", size)?;
-        }
-
-        write!(
-            w,
-            "\" href=\"icons/favicon-{}.{}\">\n",
-            index,
-            extension
-        )?;
-    }
-
-    Ok(())
-}
-
 fn get_png_buffer(image: &DynamicImage, size: u32) -> Result<Vec<u8>, Error<Key>> {
     let data = image.to_rgba().into_raw();
     // Encode the pixel data as PNG and store it in a Vec<u8>
@@ -521,6 +484,7 @@ fn get_png_buffer(image: &DynamicImage, size: u32) -> Result<Vec<u8>, Error<Key>
     Ok(output)
 }
 
+#[inline]
 /// Helper function to append a buffer to a `.tar` file
 fn write_data<W: Write>(
     builder: &mut tar::Builder<W>,
@@ -534,6 +498,7 @@ fn write_data<W: Write>(
     builder.append_data::<PathBuf, &[u8]>(&mut header, path, data)
 }
 
+#[inline]
 /// Helper function to write a buffer to a location on disk.
 fn save_file<P1: AsRef<Path>, P2: AsRef<Path>>(
     data: &[u8],

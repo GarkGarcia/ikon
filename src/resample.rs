@@ -8,7 +8,7 @@ use resvg::{usvg::{self, Tree}, raqote::DrawTarget , FitTo};
 /// [Linear resampling filter](https://en.wikipedia.org/wiki/Linear_interpolation).
 pub fn linear(source: &SourceImage, size: u32) -> io::Result<DynamicImage> {
     match source {
-        SourceImage::Raster(bit) => scale(bit, size, FilterType::Triangle),
+        SourceImage::Raster(bit) => overfit(&scale(bit, size, FilterType::Triangle)?, size),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
     }
 }
@@ -16,7 +16,7 @@ pub fn linear(source: &SourceImage, size: u32) -> io::Result<DynamicImage> {
 /// [Lanczos resampling filter](https://en.wikipedia.org/wiki/Lanczos_resampling).
 pub fn cubic(source: &SourceImage, size: u32) -> io::Result<DynamicImage> {
     match source {
-        SourceImage::Raster(bit) => scale(bit, size, FilterType::Lanczos3),
+        SourceImage::Raster(bit) => overfit(&scale(bit, size, FilterType::Lanczos3)?, size),
         SourceImage::Svg(svg)    => svg_linear(svg, size)
     }
 }

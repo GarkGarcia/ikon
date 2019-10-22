@@ -118,12 +118,8 @@ const INVALID_DIM_ERR: &str =
     "a resampling filter returned an image of dimensions other than the ones specified by it's arguments";
 
 /// A generic representation of an icon encoder.
-pub trait Icon
-where
-    Self: Sized,
-    Self::Key: AsSize
-{
-    type Key;
+pub trait Icon where Self: Sized {
+    type Key : AsSize + Send + Sync;
 
     /// Creates a new icon.
     ///
@@ -368,6 +364,9 @@ impl From<DynamicImage> for SourceImage {
         SourceImage::Raster(bit)
     }
 }
+
+unsafe impl Send for SourceImage {}
+unsafe impl Sync for SourceImage {}
 
 impl<K: AsSize> Error<K> {
     /// Converts `self` to a `Error<T>` using `f`.

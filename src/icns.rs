@@ -2,10 +2,9 @@
 
 extern crate icns;
 
-use crate::{Icon, AsSize, Image, Error};
+use crate::{Icon, AsSize, Image, Error, ResError};
 use image::{DynamicImage, GenericImageView};
 use std::{
-    str::FromStr,
     convert::TryFrom,
     fmt::{self, Debug, Formatter},
     io::{self, Write},
@@ -45,7 +44,7 @@ impl Icon for Icns {
 
     fn add_entry<'a, F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
-        mut filter: F,
+        filter: F,
         source: &Image,
         key: Self::Key
     ) -> Result<(), Error<Self::Key>> {
@@ -60,7 +59,7 @@ impl Icon for Icns {
         // The Image::from_data method only fails when the specified
         // image dimensions do not fit the buffer length
         let image = icns::Image::from_data(icns::PixelFormat::RGBA, size, size, data)
-            .map_err(|_| Error::MismatchedDimensions(size, icon.dimensions()))?;
+            .map_err(|_| ResError::MismatchedDimensions(size, icon.dimensions()))?;
 
         // The IconFamily::add_icon method only fails when the
         // specified image dimensions are not supported by ICNS
@@ -148,23 +147,6 @@ impl TryFrom<u32> for Key {
             64 => Ok(Self::Rgba64),
             32 => Ok(Self::Rgba32),
             16 => Ok(Self::Rgba16),
-            _ => Err(io::Error::from(io::ErrorKind::InvalidInput))
-        }
-    }
-}
-
-impl FromStr for Key {
-    type Err = io::Error;
-
-    fn from_str(s: &str) -> io::Result<Self> {
-        match s {
-            "1024" => Ok(Self::Rgba1024),
-            "512" => Ok(Self::Rgba512),
-            "256" => Ok(Self::Rgba256),
-            "128" => Ok(Self::Rgba128),
-            "64" => Ok(Self::Rgba64),
-            "32" => Ok(Self::Rgba32),
-            "16" => Ok(Self::Rgba16),
             _ => Err(io::Error::from(io::ErrorKind::InvalidInput))
         }
     }

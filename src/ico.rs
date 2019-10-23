@@ -6,7 +6,6 @@ use crate::{AsSize, Error, Icon, Image};
 use image::DynamicImage;
 use std::{
     convert::TryFrom,
-    str::FromStr,
     fmt::{self, Debug, Formatter},
     io::{self, Write},
     result,
@@ -102,20 +101,6 @@ impl TryFrom<u32> for Key {
             0 => Err(io::Error::from(io::ErrorKind::InvalidInput)),
             n if n < 256 => Ok(Key(n as u8)),
             _ => Err(io::Error::from(io::ErrorKind::InvalidInput))
-        }
-    }
-}
-
-impl FromStr for Key {
-    type Err = io::Error;
-
-    fn from_str(s: &str) -> io::Result<Self> {
-        match s {
-            "256" => Ok(Key(0)),
-            "0" => Err(io::Error::from(io::ErrorKind::InvalidInput)),
-            _ => s.parse::<u8>()
-                .map(Key)
-                .map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))
         }
     }
 }

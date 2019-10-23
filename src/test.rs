@@ -1,28 +1,15 @@
 use crate::{
+    png, 
     favicon::{self, Favicon},
     icns::{self, Icns},
     ico::{self, Ico},
     resample, Icon, Image,
 };
-use image::{png::PNGEncoder, ColorType, DynamicImage, GenericImageView};
 use std::{
     fs::File,
-    io::{self, BufWriter, Write},
+    io::{self, BufWriter},
     path::Path,
 };
-
-fn png<F: FnMut(&Image, u32) -> io::Result<DynamicImage>, W: Write>(
-    mut filter: F,
-    source: &Image,
-    w: W,
-) -> io::Result<()> {
-    let scaled = filter(source, 32)?;
-    let (width, height) = scaled.dimensions();
-    let encoder = PNGEncoder::new(w);
-    let data = scaled.to_rgba().into_raw();
-
-    encoder.encode(&data, width, height, ColorType::RGBA(8))
-}
 
 #[test]
 fn test_resample() -> io::Result<()> {
@@ -34,10 +21,10 @@ fn test_resample() -> io::Result<()> {
     let hydra = Image::open("tests/hydra.png").expect("File not found");
     let box_svg = Image::open("tests/box.svg").expect("File not found");
 
-    png(resample::nearest, &hydra, &mut file_near)?;
-    png(resample::linear, &hydra, &mut file_linear)?;
-    png(resample::cubic, &hydra, &mut file_cubic)?;
-    png(resample::nearest, &box_svg, &mut file_svg)?;
+    hydra.apply(resample::nearest, 32).expect("Failed").write(&mut file_near)?;
+    hydra.apply(resample::linear, 32).expect("Failed").write(&mut file_linear)?;
+    hydra.apply(resample::cubic, 32).expect("Failed").write(&mut file_cubic)?;
+    png(&box_svg.rasterize(resample::nearest, 32).expect("Failed"), &mut file_svg)?;
 
     Ok(())
 }

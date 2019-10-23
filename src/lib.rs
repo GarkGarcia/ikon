@@ -1,92 +1,92 @@
-//! A simple solution for encoding common icon file-formats, such as `.ico`, `.icns` and _favicon_. 
-//! 
+//! A simple solution for encoding common icon file-formats, such as `.ico`, `.icns` and _favicon_.
+//!
 //! This crate is mostly a wrapper for other libraries, unifying existing APIs into a single, cohesive
 //! interface. It serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)** internal library.
-//! 
+//!
 //! # Overview
-//! 
+//!
 //! An _icon_ consists of a map between _keys_ and _images_. An _entry_ is a _key-value_ pair contained
 //! in an _icon_.
-//! 
+//!
 //! **IconBaker** simply automates the process of re-scaling _images_, creating _entries_ and combining
 //! them into an _icon_.
-//! 
+//!
 //! ## Keys
-//! 
+//!
 //! Each _icon_ format is associated with a particular _key type_, which determines how
 //! _entries_ are labeled. Each _key_ can only be associated with a single _image_.
-//! 
+//!
 //! For example, _icon_ formats that only differentiate _entries_ by the dimensions of their associated
 //! _images_ are labeled by _positive integers_, such as the `.ico` and `.icns` file-formats.
-//! 
-//! On the other hand, _icon_ formats that distinguish their _entries_ by 
+//!
+//! On the other hand, _icon_ formats that distinguish their _entries_ by
 //! _[path](https://en.wikipedia.org/wiki/Path_%28computing%29)_, such as _png sequeces_ and
 //! _[FreeDesktop icon themes](https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html)_
 //! , are labeled by _path_.
-//! 
+//!
 //! Note that, since the dimensions
 //! of the _images_ contained in an _entry_ are dictated by their associated _entries_, every _key_
 //! must be convertible to a _positive integers_. Therefore, all _key types_ are required to implement
 //! `AsRef<u32>`.
-//! 
+//!
 //! ## Resampling
-//! 
-//! Pictures are scaled using resampling filters, which are represented by _functions that take a source_ 
+//!
+//! Pictures are scaled using resampling filters, which are represented by _functions that take a source_
 //! _image and a size and return a re-scaled image_.
-//! 
-//! This allows the users of this crate to provide their custom resampling filters. Common resampling 
-//! filters are provided in the 
+//!
+//! This allows the users of this crate to provide their custom resampling filters. Common resampling
+//! filters are provided in the
 //! [`resample`](https://docs.rs/icon_baker/2.2.0/icon_baker/resample/index.html) module.
-//! 
+//!
 //! # Examples
-//! 
+//!
 //! ## General Usage
-//! 
+//!
 //! The `Icon::add_entry` can be used to automatically resample
 //! _source images_ and converts them to _entries_ in an icon.
-//! 
+//!
 //! ```rust
 //! use icon_baker::{ico::{Ico, Key}, Image, Icon, Error};
 //!   
 //! fn example() -> Result<(), Error> {
 //!     let icon = Ico::new();
 //!     let src = Image::open("image.svg")?;
-//! 
+//!
 //!     icon.add_entry(resample::linear, &img, Key(32))
 //! }
 //! ```
-//! 
+//!
 //! ## Writing to Disk
-//! 
+//!
 //! Implementors of the `Icon` trait can be written to any object
 //! that implements `io::Write` with the `Icon::write` method.
-//! 
+//!
 //! ```rust
 //! use icon_baker::favicon::Favicon;
 //! use std::{io, fs::File};
 //!  
 //! fn example() -> io::Result<()> {
 //!     let icon = Favicon::new();
-//! 
+//!
 //!     // Process the icon ...
-//! 
+//!
 //!     let file = File::create("out.icns")?;
 //!     icon.write(file)
 //! }
 //! ```
-//! 
+//!
 //! Alternatively, icons can be directly written to a file on
 //! disk with `Icon::save` method.
-//! 
+//!
 //! ```rust
 //! use icon_baker::favicon::Favicon;
 //! use std::{io, fs::File};
 //!  
 //! fn example() -> io::Result<()> {
 //!     let icon = Favicon::new();
-//! 
+//!
 //!     /* Process the icon */
-//! 
+//!
 //!     icon.save("./output/")
 //! }
 //! ```
@@ -95,8 +95,11 @@ pub extern crate image;
 pub extern crate resvg;
 
 use crate::usvg::Tree;
-use image::{DynamicImage, GenericImageView, ImageError};
-pub use resvg::{raqote, usvg};
+use image::{png::PNGEncoder, ColorType, DynamicImage, GenericImageView, ImageError};
+pub use resvg::{
+    raqote,
+    usvg::{self, XmlIndent, XmlOptions},
+};
 use std::{
     convert::From,
     error,
@@ -117,9 +120,18 @@ const STD_CAPACITY: usize = 7;
 const INVALID_DIM_ERR: &str =
     "a resampling filter returned an image of dimensions other than the ones specified by it's arguments";
 
+const XML_OPTS: XmlOptions = XmlOptions {
+    indent: XmlIndent::None,
+    attributes_indent: XmlIndent::None,
+    use_single_quote: false,
+};
+
 /// A generic representation of an icon encoder.
-pub trait Icon where Self: Sized {
-    type Key : AsSize + Send + Sync;
+pub trait Icon
+where
+    Self: Sized,
+{
+    type Key: AsSize + Send + Sync;
 
     /// Creates a new icon.
     ///
@@ -218,10 +230,7 @@ pub trait Icon where Self: Sized {
     ///     )
     /// }
     /// ```
-    fn add_entries<
-        F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>,
-        I: IntoIterator<Item = Self::Key>,
-    >(
+    fn add_entries<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>, I: IntoIterator<Item = Self::Key>>(
         &mut self,
         mut filter: F,
         source: &Image,
@@ -290,9 +299,16 @@ pub enum Image {
 }
 
 /// The error type for operations of the `Icon` trait.
-pub enum Error<K: AsSize> {
+pub enum Error<K: AsSize + Send + Sync> {
     /// The `Icon` instance already includes an entry associated with this key.
     AlreadyIncluded(K),
+    /// A resampling error.
+    Resample(ResError),
+}
+
+#[derive(Debug)]
+/// The error type for resampling operations.
+pub enum ResError {
     /// Generic I/O error.
     Io(io::Error),
     /// A resampling filter produced results of dimensions
@@ -300,15 +316,11 @@ pub enum Error<K: AsSize> {
     MismatchedDimensions(u32, (u32, u32)),
 }
 
-enum ResamplingError {
-    Io(io::Error),
-    MismatchedDimensions(u32, (u32, u32))
-}
-
 impl Image {
     /// Attempts to create a `Image` from a given path.
     ///
     /// # Return Value
+    /// 
     /// * Returns `Ok(src)` if the file indicated by the `path` argument could be
     ///   successfully parsed into an image.
     /// * Returns `Err(io::Error::from(io::ErrorKind::Other))` if the image allocation failed
@@ -326,39 +338,50 @@ impl Image {
             Ok(img) => Ok(Image::from(img)),
             Err(ImageError::InsufficientMemory) => Err(io::Error::from(io::ErrorKind::Other)),
             Err(ImageError::IoError(err)) => Err(err),
-            Err(ImageError::UnsupportedError(_)) => match Tree::from_file(path, &usvg::Options::default()) {
-                Ok(img) => Ok(Image::from(img)),
-                Err(usvg::Error::InvalidFileSuffix) => Err(io::Error::from(io::ErrorKind::InvalidInput)),
-                Err(usvg::Error::FileOpenFailed) => Err(io::Error::from(io::ErrorKind::Other)),
-                _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
-            },
+            Err(ImageError::UnsupportedError(_)) => {
+                match Tree::from_file(path, &usvg::Options::default()) {
+                    Ok(img) => Ok(Image::from(img)),
+                    Err(usvg::Error::InvalidFileSuffix) => {
+                        Err(io::Error::from(io::ErrorKind::InvalidInput))
+                    }
+                    Err(usvg::Error::FileOpenFailed) => Err(io::Error::from(io::ErrorKind::Other)),
+                    _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
+                }
+            }
             _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
         }
     }
 
-    pub(crate) fn apply<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
+    pub fn apply<'a, F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &self,
-        mut filter: F,
-        size: u32
-    ) -> Result<&Self, ResamplingError> {
+        filter: F,
+        size: u32,
+    ) -> Result<Self, ResError> {
         match self {
-            Self::Raster(ras) => resample::apply(filter, ras, size).map(|ras| &Self::Raster(ras)),
-            Self::Svg(_) => Ok(self)
+            Self::Raster(ras) => resample::apply(filter, ras, size).map(|ras| Self::Raster(ras)),
+            Self::Svg(svg) => Ok(Self::Svg(svg.clone())),
         }
     }
 
-    pub(crate) fn rasterize<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
+    pub fn rasterize<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &self,
-        mut filter: F,
-        size: u32
-    ) -> Result<DynamicImage, ResamplingError> {
+        filter: F,
+        size: u32,
+    ) -> Result<DynamicImage, ResError> {
         match self {
             Self::Raster(ras) => resample::apply(filter, ras, size),
-            Self::Svg(svg) => resample::svg(svg, size)
+            Self::Svg(svg) => resample::svg(svg, size),
         }
     }
 
-    /// Returns the width of the original image in pixels.
+    pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
+        match self {
+            Self::Raster(ras) => png(ras, w),
+            Self::Svg(svg) => w.write_all(svg.to_string(XML_OPTS).into_bytes().as_ref()),
+        }
+    }
+
+    /// Returns the width of the image in pixels.
     pub fn width(&self) -> f64 {
         match self {
             Image::Raster(ras) => ras.width() as f64,
@@ -366,7 +389,7 @@ impl Image {
         }
     }
 
-    /// Returns the height of the original image in pixels.
+    /// Returns the height of the image in pixels.
     pub fn height(&self) -> f64 {
         match self {
             Image::Raster(ras) => ras.height() as f64,
@@ -374,7 +397,7 @@ impl Image {
         }
     }
 
-    /// Returns the dimensions of the original image in pixels.
+    /// Returns the dimensions of the image in pixels.
     pub fn dimensions(&self) -> (f64, f64) {
         (self.width(), self.height())
     }
@@ -395,26 +418,83 @@ impl From<DynamicImage> for Image {
 unsafe impl Send for Image {}
 unsafe impl Sync for Image {}
 
-impl<K: AsSize> Error<K> {
+impl<K: AsSize + Send + Sync> Error<K> {
     /// Converts `self` to a `Error<T>` using `f`.
-    pub fn map<T: AsSize, F: FnOnce(K) -> T>(self, f: F) -> Error<T> {
+    pub fn map<T: AsSize + Send + Sync, F: FnOnce(K) -> T>(
+        self,
+        f: F
+    ) -> Error<T> {
         match self {
-            Error::AlreadyIncluded(e) => Error::AlreadyIncluded(f(e)),
-            Error::Io(err) => Error::Io(err),
-            Error::MismatchedDimensions(e, g) => Error::MismatchedDimensions(e, g),
+            Self::AlreadyIncluded(e) => Error::AlreadyIncluded(f(e)),
+            Self::Resample(err) => Error::Resample(err),
         }
     }
 }
 
-impl<K: AsSize + Debug + Eq> Display for Error<K> {
+impl<K: AsSize + Send + Sync> Display for Error<K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::AlreadyIncluded(_) => write!(
+            Self::AlreadyIncluded(_) => write!(
                 f,
                 "the icon already contains an entry associated with this key"
             ),
-            Error::Io(err) => write!(f, "{}", err),
-            Error::MismatchedDimensions(s, (w, h)) => write!(
+            Self::Resample(err) => <ResError as Display>::fmt(&err, f),
+        }
+    }
+}
+
+impl<K: AsSize + Send + Sync + Debug> Debug for Error<K> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::AlreadyIncluded(e) => write!(f, "Error::AlreadyIncluded({:?})", e),
+            Self::Resample(err) => <ResError as Debug>::fmt(&err, f),
+        }
+    }
+}
+
+impl<K: AsSize + Send + Sync + Debug> error::Error for Error<K> {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        if let Self::Resample(ref err) = self {
+            err.source()
+        } else {
+            None
+        }
+    }
+}
+
+impl<K: AsSize + Send + Sync> From<ResError> for Error<K> {
+    fn from(err: ResError) -> Self {
+        Self::Resample(err)
+    }
+}
+
+impl<K: AsSize + Send + Sync> From<io::Error> for Error<K> {
+    fn from(err: io::Error) -> Self {
+        Self::from(ResError::from(err))
+    }
+}
+
+impl<K: AsSize + Send + Sync> Into<io::Error> for Error<K> {
+    fn into(self) -> io::Error {
+        if let Self::Resample(err) = self {
+            err.into()
+        } else {
+            io::Error::from(io::ErrorKind::InvalidInput)
+        }
+    }
+}
+
+impl From<io::Error> for ResError {
+    fn from(err: io::Error) -> Self {
+        Self::Io(err)
+    }
+}
+
+impl Display for ResError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io(err) => write!(f, "{}", err),
+            Self::MismatchedDimensions(s, (w, h)) => write!(
                 f,
                 "{0}: expected {1}x{1}, got {2}x{3}",
                 INVALID_DIM_ERR, s, w, h
@@ -423,21 +503,9 @@ impl<K: AsSize + Debug + Eq> Display for Error<K> {
     }
 }
 
-impl<K: AsSize + Debug> Debug for Error<K> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Error::AlreadyIncluded(e) => write!(f, "Error::AlreadyIncluded({:?})", e),
-            Error::Io(err) => write!(f, "Error::Io({:?})", err),
-            Error::MismatchedDimensions(e, g) => {
-                write!(f, "Error::MismatchedDimensions({}, {:?})", e, g)
-            }
-        }
-    }
-}
-
-impl<K: AsSize + Debug + Eq> error::Error for Error<K> {
+impl error::Error for ResError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        if let Error::Io(ref err) = self {
+        if let Self::Io(ref err) = self {
             Some(err)
         } else {
             None
@@ -445,33 +513,18 @@ impl<K: AsSize + Debug + Eq> error::Error for Error<K> {
     }
 }
 
-impl<K: AsSize> From<io::Error> for Error<K> {
-    fn from(err: io::Error) -> Self {
-        Error::Io(err)
-    }
-}
-
-impl<K: AsSize + Send + Sync> From<ResamplingError> for Error<K> {
-    fn from(err: ResamplingError) -> Self {
-        match err {
-            ResamplingError::Io(err) => Self::Io(err),
-            ResamplingError::MismatchedDimensions(e, g) => Self::MismatchedDimensions(e, g)
-        }
-    }
-}
-
-impl<K: AsSize> Into<io::Error> for Error<K> {
+impl Into<io::Error> for ResError {
     fn into(self) -> io::Error {
         match self {
-            Error::Io(err) => err,
-            Error::MismatchedDimensions(_, _) => io::Error::from(io::ErrorKind::InvalidData),
-            _ => io::Error::from(io::ErrorKind::InvalidInput),
+            Self::Io(err) => err,
+            Self::MismatchedDimensions(_, _) => io::Error::from(io::ErrorKind::InvalidData),
         }
     }
 }
 
-impl From<io::Error> for ResamplingError {
-    fn from(err: io::Error) -> Self {
-        Self::Io(err)
-    }
+fn png<W: Write>(image: &DynamicImage, w: &mut W) -> io::Result<()> {
+    let data = image.to_rgba().into_raw();
+    let encoder = PNGEncoder::new(w);
+
+    encoder.encode(&data, image.width(), image.height(), ColorType::RGBA(8))
 }

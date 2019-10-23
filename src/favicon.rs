@@ -3,22 +3,15 @@
 extern crate image;
 extern crate tar;
 
-use crate::{resample, AsSize, Error, Icon, Image};
-use image::{png::PNGEncoder, ColorType, DynamicImage};
-use resvg::usvg::{self, XmlIndent, XmlOptions};
+use crate::{png, AsSize, Error, Icon, Image, XML_OPTS};
+use image::{DynamicImage, GenericImageView};
+use resvg::usvg;
 use std::{
     convert::TryFrom,
     collections::{hash_map::{HashMap, Entry}, btree_set::BTreeSet},
     fs::{DirBuilder, File},
     io::{self, Write},
     path::{Path, PathBuf},
-    str::FromStr,
-};
-
-const XML_OPTS: XmlOptions = XmlOptions {
-    use_single_quote: false,
-    indent: XmlIndent::None,
-    attributes_indent: XmlIndent::None,
 };
 
 const APPLE_TOUCH_SIZES: [u32;4] = [76, 120, 152, 180];
@@ -210,20 +203,20 @@ impl Favicon {
 
     #[inline]
     /// Adds a raster entry.
-    fn add_raster<F: FnMut(&Image, u32) -> io::Result<DynamicImage>>(
+    fn add_raster(
         &mut self,
-        filter: F,
-        source: &Image,
+        source: &DynamicImage,
         key: Key
     ) -> Result<(), Error<Key>> {
         let size = key.as_size();
-        let icon = resample::apply(filter, source, size)?;
-        let buf = get_png_buffer(&icon, size)?;
 
         match self.pngs.entry(size) {
             Entry::Occupied(_) => Err(Error::AlreadyIncluded(key)),
             Entry::Vacant(entry) => {
-                let _ = entry.insert(buf);
+                // TODO Size this buffer
+                let buf = Vec::with_capacity((source.width() * source.height()) as usize);
+                png(source, entry.insert(buf))?;
+
                 Ok(())
             }
         }
@@ -299,9 +292,9 @@ impl Icon for Favicon {
         source: &Image,
         key: Self::Key,
     ) -> Result<(), Error<Self::Key>> {
-        match source {
-            Image::Raster(_) => self.add_raster(filter, source, key),
-            Image::Svg(svg) => self.add_svg(svg, key)
+        match source.apply(filter, key.as_size())? {
+            Image::Raster(ras) => self.add_raster(&ras, key),
+            Image::Svg(svg) => self.add_svg(&svg, key)
         }
     }
 
@@ -357,21 +350,6 @@ impl TryFrom<u32> for Key {
             0 => Err(io::Error::from(io::ErrorKind::InvalidInput)),
             n if n < 65536 => Ok(Key(n as u16)),
             _ => Err(io::Error::from(io::ErrorKind::InvalidInput))
-        }
-    }
-}
-
-impl FromStr for Key {
-    type Err = io::Error;
-
-    fn from_str(s: &str) -> io::Result<Self> {
-        match s {
-            "65536" => Ok(Key(0)),
-            "0" => Err(io::Error::from(io::ErrorKind::InvalidInput)),
-            _ => s
-                .parse::<u16>()
-                .map(Key)
-                .map_err(|_| io::Error::from(io::ErrorKind::InvalidInput)),
         }
     }
 }
@@ -472,16 +450,6 @@ impl<'a> BufInfo<'a> {
     
         Ok(())
     }
-}
-
-fn get_png_buffer(image: &DynamicImage, size: u32) -> Result<Vec<u8>, Error<Key>> {
-    let data = image.to_rgba().into_raw();
-    // Encode the pixel data as PNG and store it in a Vec<u8>
-    let mut output = Vec::with_capacity(data.len());
-    let encoder = PNGEncoder::new(&mut output);
-    encoder.encode(&data, size, size, ColorType::RGBA(8))?;
-
-    Ok(output)
 }
 
 #[inline]

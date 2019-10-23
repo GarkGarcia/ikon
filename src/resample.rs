@@ -1,6 +1,6 @@
 //! A collection of commonly used resampling filters.
 
-use crate::ResamplingError;
+use crate::ResError;
 use std::io;
 use image::{imageops, DynamicImage, ImageBuffer, GenericImageView, FilterType, Bgra};
 use resvg::{usvg::{self, Tree}, raqote::DrawTarget , FitTo};
@@ -53,7 +53,7 @@ fn overfit(source: &DynamicImage, size: u32) -> io::Result<DynamicImage> {
     Ok(output)
 }
 
-pub(crate) fn svg(source: &Tree, size: u32) -> Result<DynamicImage, ResamplingError> {
+pub(crate) fn svg(source: &Tree, size: u32) -> Result<DynamicImage, ResError> {
     let rect = source.svg_node().view_box.rect;
     let (w, h) = (rect.width(), rect.height());
     let fit_to = if w > h { FitTo::Width(size) } else { FitTo::Height(size) };
@@ -91,12 +91,12 @@ pub(crate) fn apply<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
     mut filter: F,
     source: &DynamicImage,
     size: u32
-) -> Result<DynamicImage, ResamplingError> {
+) -> Result<DynamicImage, ResError> {
     let icon = filter(source, size)?;
     let dims = icon.dimensions();
 
     if dims != (size, size) {
-        Err(ResamplingError::MismatchedDimensions(size, dims))
+        Err(ResError::MismatchedDimensions(size, dims))
     } else {
         Ok(icon)
     }

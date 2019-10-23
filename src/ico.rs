@@ -2,7 +2,7 @@
 
 extern crate ico;
 
-use crate::{resample, AsSize, Error, Icon, SourceImage};
+use crate::{AsSize, Error, Icon, Image};
 use image::DynamicImage;
 use std::{
     convert::TryFrom,
@@ -38,10 +38,10 @@ impl Icon for Ico {
         self.icon_dir.entries().len()
     }
 
-    fn add_entry<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
+    fn add_entry<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,
-        source: &SourceImage,
+        source: &Image,
         key: Self::Key,
     ) -> Result<(), Error<Self::Key>> {
         let size = key.as_size();
@@ -50,7 +50,7 @@ impl Icon for Ico {
             return Err(Error::AlreadyIncluded(key));
         }
 
-        let icon = resample::apply(filter, source, size)?;
+        let icon = source.rasterize(filter, size)?;
         let data = icon.to_rgba().into_vec();
         let image = ico::IconImage::from_rgba_data(size, size, data);
 

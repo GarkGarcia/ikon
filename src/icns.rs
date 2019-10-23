@@ -2,7 +2,7 @@
 
 extern crate icns;
 
-use crate::{Icon, AsSize, SourceImage, Error};
+use crate::{Icon, AsSize, Image, Error};
 use image::{DynamicImage, GenericImageView};
 use std::{
     str::FromStr,
@@ -43,14 +43,14 @@ impl Icon for Icns {
         self.icon_family.elements.len()
     }
 
-    fn add_entry<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
+    fn add_entry<'a, F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
         mut filter: F,
-        source: &SourceImage,
+        source: &Image,
         key: Self::Key
     ) -> Result<(), Error<Self::Key>> {
         let size = key.as_size();
-        let icon = filter(source, size)?;
+        let icon = source.rasterize(filter, size)?;
         let data = icon.to_rgba().into_vec();
 
         if self.keys.contains(&size) {

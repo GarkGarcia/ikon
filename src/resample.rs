@@ -1,35 +1,22 @@
 //! A collection of commonly used resampling filters.
 
-use crate::{SourceImage, Error, AsSize};
-use std::{io, fmt::Debug};
+use crate::ResamplingError;
+use std::io;
 use image::{imageops, DynamicImage, ImageBuffer, GenericImageView, FilterType, Bgra};
 use resvg::{usvg::{self, Tree}, raqote::DrawTarget , FitTo};
 
 /// [Linear resampling filter](https://en.wikipedia.org/wiki/Linear_interpolation).
-pub fn linear(source: &SourceImage, size: u32) -> io::Result<DynamicImage> {
-    match source {
-        SourceImage::Raster(bit) => overfit(&scale(bit, size, FilterType::Triangle)?, size),
-        SourceImage::Svg(svg)    => svg_linear(svg, size)
-    }
+pub fn linear(source: &DynamicImage, size: u32) -> io::Result<DynamicImage> {
+    overfit(&scale(source, size, FilterType::Triangle)?, size)
 }
 
 /// [Lanczos resampling filter](https://en.wikipedia.org/wiki/Lanczos_resampling).
-pub fn cubic(source: &SourceImage, size: u32) -> io::Result<DynamicImage> {
-    match source {
-        SourceImage::Raster(bit) => overfit(&scale(bit, size, FilterType::Lanczos3)?, size),
-        SourceImage::Svg(svg)    => svg_linear(svg, size)
-    }
+pub fn cubic(source: &DynamicImage, size: u32) -> io::Result<DynamicImage> {
+    overfit(&scale(source, size, FilterType::Lanczos3)?, size)
 }
 
 /// [Nearest-Neighbor resampling filter](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation).
-pub fn nearest(source: &SourceImage, size: u32) -> io::Result<DynamicImage> {
-    match source {
-        SourceImage::Raster(bit) => nearest_raster(bit, size),
-        SourceImage::Svg(svg)    => svg_linear(svg, size)
-    }
-}
-
-fn nearest_raster(source: &DynamicImage, size: u32) -> io::Result<DynamicImage> {
+pub fn nearest(source: &DynamicImage, size: u32) -> io::Result<DynamicImage> {
     let scaled = if source.width() < size && source.height() < size {
         nearest_upscale_integer(source, size)?
     } else {
@@ -66,7 +53,7 @@ fn overfit(source: &DynamicImage, size: u32) -> io::Result<DynamicImage> {
     Ok(output)
 }
 
-fn svg_linear(source: &Tree, size: u32) -> io::Result<DynamicImage> {
+pub(crate) fn svg(source: &Tree, size: u32) -> Result<DynamicImage, ResamplingError> {
     let rect = source.svg_node().view_box.rect;
     let (w, h) = (rect.width(), rect.height());
     let fit_to = if w > h { FitTo::Width(size) } else { FitTo::Height(size) };
@@ -82,7 +69,7 @@ fn svg_linear(source: &Tree, size: u32) -> io::Result<DynamicImage> {
     let draw_target = resvg::backend_raqote::render_to_image(source, &opts)
         .expect("Could not render svg tree to image buffer");
 
-    draw_target_to_rgba(draw_target, size)
+    Ok(draw_target_to_rgba(draw_target, size)?)
 }
 
 #[inline]
@@ -100,19 +87,16 @@ fn draw_target_to_rgba(mut surface: DrawTarget, size: u32) -> io::Result<Dynamic
 
 /// Aplies a resampling filter to `source` and checks if the dimensions
 /// of the output match the ones specified by `size`.
-pub fn apply<
-    F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>,
-    E: AsSize + Debug + Eq
->(
+pub(crate) fn apply<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
     mut filter: F,
-    source: &SourceImage,
+    source: &DynamicImage,
     size: u32
-) -> Result<DynamicImage, Error<E>> {
+) -> Result<DynamicImage, ResamplingError> {
     let icon = filter(source, size)?;
-    let (icon_w, icon_h) = icon.dimensions();
+    let dims = icon.dimensions();
 
-    if icon_w != size || icon_h != size {
-        Err(Error::MismatchedDimensions(size, (icon_w, icon_h)))
+    if dims != (size, size) {
+        Err(ResamplingError::MismatchedDimensions(size, dims))
     } else {
         Ok(icon)
     }

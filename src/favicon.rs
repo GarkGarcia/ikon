@@ -3,7 +3,7 @@
 extern crate image;
 extern crate tar;
 
-use crate::{resample, AsSize, Error, Icon, SourceImage};
+use crate::{resample, AsSize, Error, Icon, Image};
 use image::{png::PNGEncoder, ColorType, DynamicImage};
 use resvg::usvg::{self, XmlIndent, XmlOptions};
 use std::{
@@ -210,10 +210,10 @@ impl Favicon {
 
     #[inline]
     /// Adds a raster entry.
-    fn add_raster<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
+    fn add_raster<F: FnMut(&Image, u32) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,
-        source: &SourceImage,
+        source: &Image,
         key: Key
     ) -> Result<(), Error<Key>> {
         let size = key.as_size();
@@ -293,15 +293,15 @@ impl Icon for Favicon {
         self.pngs.len() + self.svg_entries.len()
     }
 
-    fn add_entry<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
+    fn add_entry<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,
-        source: &SourceImage,
+        source: &Image,
         key: Self::Key,
     ) -> Result<(), Error<Self::Key>> {
         match source {
-            SourceImage::Raster(_) => self.add_raster(filter, source, key),
-            SourceImage::Svg(svg) => self.add_svg(svg, key)
+            Image::Raster(_) => self.add_raster(filter, source, key),
+            Image::Svg(svg) => self.add_svg(svg, key)
         }
     }
 

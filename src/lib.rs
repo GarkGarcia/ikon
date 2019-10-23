@@ -46,11 +46,11 @@
 //! _source images_ and converts them to _entries_ in an icon.
 //! 
 //! ```rust
-//! use icon_baker::{ico::{Ico, Key}, SourceImage, Icon, Error};
+//! use icon_baker::{ico::{Ico, Key}, Image, Icon, Error};
 //!   
 //! fn example() -> Result<(), Error> {
 //!     let icon = Ico::new();
-//!     let src = SourceImage::open("image.svg")?;
+//!     let src = Image::open("image.svg")?;
 //! 
 //!     icon.add_entry(resample::linear, &img, Key(32))
 //! }
@@ -166,19 +166,19 @@ pub trait Icon where Self: Sized {
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::{Ico, SourceImage, Icon, Error};
+    /// use icon_baker::{Ico, Image, Icon, Error};
     ///  
     /// fn example() -> Result<(), Error> {
     ///     let icon = Ico::new();
-    ///     let src = SourceImage::open("image.svg")?;
+    ///     let src = Image::open("image.svg")?;
     ///
     ///     icon.add_entry(resample::linear, &img, 32)
     /// }
     /// ```
-    fn add_entry<F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>>(
+    fn add_entry<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,
-        source: &SourceImage,
+        source: &Image,
         key: Self::Key,
     ) -> Result<(), Error<Self::Key>>;
 
@@ -205,11 +205,11 @@ pub trait Icon where Self: Sized {
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::{Icns, SourceImage, Icon, Error};
+    /// use icon_baker::{Icns, Image, Icon, Error};
     ///  
     /// fn example() -> Result<(), Error> {
     ///     let icon = Icns::new();
-    ///     let src = SourceImage::open("image.svg")?;
+    ///     let src = Image::open("image.svg")?;
     ///
     ///     icon.add_entries(
     ///         resample::linear,
@@ -219,12 +219,12 @@ pub trait Icon where Self: Sized {
     /// }
     /// ```
     fn add_entries<
-        F: FnMut(&SourceImage, u32) -> io::Result<DynamicImage>,
+        F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>,
         I: IntoIterator<Item = Self::Key>,
     >(
         &mut self,
         mut filter: F,
-        source: &SourceImage,
+        source: &Image,
         keys: I,
     ) -> Result<(), Error<Self::Key>> {
         for key in keys {
@@ -282,7 +282,7 @@ pub trait AsSize {
 
 #[derive(Clone)]
 /// A uniun type for raster and vector graphics.
-pub enum SourceImage {
+pub enum Image {
     /// A generic raster image.
     Raster(DynamicImage),
     /// A svg-encoded vector image.
@@ -300,8 +300,13 @@ pub enum Error<K: AsSize> {
     MismatchedDimensions(u32, (u32, u32)),
 }
 
-impl SourceImage {
-    /// Attempts to create a `SourceImage` from a given path.
+enum ResamplingError {
+    Io(io::Error),
+    MismatchedDimensions(u32, (u32, u32))
+}
+
+impl Image {
+    /// Attempts to create a `Image` from a given path.
     ///
     /// # Return Value
     /// * Returns `Ok(src)` if the file indicated by the `path` argument could be
@@ -314,15 +319,15 @@ impl SourceImage {
     ///
     /// # Example
     /// ```rust
-    /// let img = SourceImage::open("source.png")?;
+    /// let img = Image::open("source.png")?;
     /// ```
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
         match image::open(&path) {
-            Ok(img) => Ok(SourceImage::from(img)),
+            Ok(img) => Ok(Image::from(img)),
             Err(ImageError::InsufficientMemory) => Err(io::Error::from(io::ErrorKind::Other)),
             Err(ImageError::IoError(err)) => Err(err),
             Err(ImageError::UnsupportedError(_)) => match Tree::from_file(path, &usvg::Options::default()) {
-                Ok(img) => Ok(SourceImage::from(img)),
+                Ok(img) => Ok(Image::from(img)),
                 Err(usvg::Error::InvalidFileSuffix) => Err(io::Error::from(io::ErrorKind::InvalidInput)),
                 Err(usvg::Error::FileOpenFailed) => Err(io::Error::from(io::ErrorKind::Other)),
                 _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
@@ -331,19 +336,41 @@ impl SourceImage {
         }
     }
 
+    pub(crate) fn apply<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
+        &self,
+        mut filter: F,
+        size: u32
+    ) -> Result<&Self, ResamplingError> {
+        match self {
+            Self::Raster(ras) => resample::apply(filter, ras, size).map(|ras| &Self::Raster(ras)),
+            Self::Svg(_) => Ok(self)
+        }
+    }
+
+    pub(crate) fn rasterize<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
+        &self,
+        mut filter: F,
+        size: u32
+    ) -> Result<DynamicImage, ResamplingError> {
+        match self {
+            Self::Raster(ras) => resample::apply(filter, ras, size),
+            Self::Svg(svg) => resample::svg(svg, size)
+        }
+    }
+
     /// Returns the width of the original image in pixels.
     pub fn width(&self) -> f64 {
         match self {
-            SourceImage::Raster(ras) => ras.width() as f64,
-            SourceImage::Svg(svg) => svg.svg_node().view_box.rect.width(),
+            Image::Raster(ras) => ras.width() as f64,
+            Image::Svg(svg) => svg.svg_node().view_box.rect.width(),
         }
     }
 
     /// Returns the height of the original image in pixels.
     pub fn height(&self) -> f64 {
         match self {
-            SourceImage::Raster(ras) => ras.height() as f64,
-            SourceImage::Svg(svg) => svg.svg_node().view_box.rect.height(),
+            Image::Raster(ras) => ras.height() as f64,
+            Image::Svg(svg) => svg.svg_node().view_box.rect.height(),
         }
     }
 
@@ -353,20 +380,20 @@ impl SourceImage {
     }
 }
 
-impl From<Tree> for SourceImage {
+impl From<Tree> for Image {
     fn from(svg: Tree) -> Self {
-        SourceImage::Svg(svg)
+        Image::Svg(svg)
     }
 }
 
-impl From<DynamicImage> for SourceImage {
+impl From<DynamicImage> for Image {
     fn from(bit: DynamicImage) -> Self {
-        SourceImage::Raster(bit)
+        Image::Raster(bit)
     }
 }
 
-unsafe impl Send for SourceImage {}
-unsafe impl Sync for SourceImage {}
+unsafe impl Send for Image {}
+unsafe impl Sync for Image {}
 
 impl<K: AsSize> Error<K> {
     /// Converts `self` to a `Error<T>` using `f`.
@@ -424,6 +451,15 @@ impl<K: AsSize> From<io::Error> for Error<K> {
     }
 }
 
+impl<K: AsSize + Send + Sync> From<ResamplingError> for Error<K> {
+    fn from(err: ResamplingError) -> Self {
+        match err {
+            ResamplingError::Io(err) => Self::Io(err),
+            ResamplingError::MismatchedDimensions(e, g) => Self::MismatchedDimensions(e, g)
+        }
+    }
+}
+
 impl<K: AsSize> Into<io::Error> for Error<K> {
     fn into(self) -> io::Error {
         match self {
@@ -431,5 +467,11 @@ impl<K: AsSize> Into<io::Error> for Error<K> {
             Error::MismatchedDimensions(_, _) => io::Error::from(io::ErrorKind::InvalidData),
             _ => io::Error::from(io::ErrorKind::InvalidInput),
         }
+    }
+}
+
+impl From<io::Error> for ResamplingError {
+    fn from(err: io::Error) -> Self {
+        Self::Io(err)
     }
 }

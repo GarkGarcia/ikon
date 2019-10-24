@@ -101,7 +101,7 @@ pub use resvg::{
     usvg::{self, XmlIndent, XmlOptions},
 };
 use std::{
-    convert::From,
+    convert::{From, TryFrom},
     error,
     fmt::{self, Debug, Display, Formatter},
     fs::File,
@@ -117,7 +117,7 @@ pub mod resample;
 mod test;
 
 const STD_CAPACITY: usize = 7;
-const INVALID_DIM_ERR: &str =
+const MISMATCHED_DIM_ERR: &str =
     "a resampling filter returned an image of dimensions other than the ones specified by it's arguments";
 
 const XML_OPTS: XmlOptions = XmlOptions {
@@ -293,6 +293,16 @@ pub enum Image {
     Svg(Tree),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+/// A wrapper for images encoded in a particular
+/// _file format_.
+pub enum Encoded {
+    /// A _PNG_ encoded image.
+    Png(Vec<u8>),
+    /// An _SVG_ encoded image.
+    Svg(Vec<u8>)
+}
+
 /// The error type for operations of the `Icon` trait.
 pub enum IconError<K: AsSize + Send + Sync> {
     /// The `Icon` instance already includes an entry associated with this key.
@@ -349,6 +359,20 @@ impl Image {
 
     /// Applies a _resampling filter_ to the image. For _vector graphics_,
     /// the method simply returns a copy of the image.
+    /// 
+    /// # Return Value
+    /// 
+    /// * Returns `Err(ResampleError::Io(_))` if the filter fails.
+    /// * Returns `Err(ResampleError::MismatchedDimensions(_, _)` if the
+    ///   filter specified by `filter` returns an image of dimensions other
+    ///   than the ones specified by `size`.
+    /// * Returns `Ok(_)` otherwise.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// let rescaled = image.apply(resample::nearest, 32)?;
+    /// ```
     pub fn apply<'a, F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &self,
         filter: F,
@@ -361,6 +385,11 @@ impl Image {
     }
 
     /// Rasterizes the `Image` to a `DynamicImage`.
+    /// 
+    /// For _raster graphics_ the moethod simply applies the resampling filter
+    /// specified by the `filter` argument. For _vector graphics_, the method
+    /// rasterizes the image to fit the dimensions specified `size` using
+    /// linear interpolation and antialiasing.
     pub fn rasterize<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &self,
         filter: F,
@@ -372,10 +401,10 @@ impl Image {
         }
     }
 
-    pub fn write<W: Write>(&self, w: &mut W) -> io::Result<()> {
+    pub fn encode(&self) -> io::Result<Encoded> {
         match self {
-            Self::Raster(ras) => png(ras, w),
-            Self::Svg(svg) => w.write_all(svg.to_string(XML_OPTS).into_bytes().as_ref()),
+            Self::Raster(ras) => Ok(Encoded::Png(png(ras)?)),
+            Self::Svg(svg) => Ok(Encoded::Svg(svg.to_string(XML_OPTS).into_bytes())),
         }
     }
 
@@ -415,6 +444,15 @@ impl From<DynamicImage> for Image {
 
 unsafe impl Send for Image {}
 unsafe impl Sync for Image {}
+
+impl TryFrom<DynamicImage> for Encoded {
+    type Error = io::Error;
+
+    fn try_from(image: DynamicImage) -> io::Result<Self> {
+        let buf = png(&image)?;
+        Ok(Encoded::Png(buf))
+    }
+}
 
 impl<K: AsSize + Send + Sync> IconError<K> {
     /// Converts `self` to a `IconError<T>` using `f`.
@@ -495,7 +533,7 @@ impl Display for ResampleError {
             Self::MismatchedDimensions(s, (w, h)) => write!(
                 f,
                 "{0}: expected {1}x{1}, got {2}x{3}",
-                INVALID_DIM_ERR, s, w, h
+                MISMATCHED_DIM_ERR, s, w, h
             ),
         }
     }
@@ -520,9 +558,12 @@ impl Into<io::Error> for ResampleError {
     }
 }
 
-fn png<W: Write>(image: &DynamicImage, w: &mut W) -> io::Result<()> {
+fn png(image: &DynamicImage) -> io::Result<Vec<u8>> {
     let data = image.to_rgba().into_raw();
-    let encoder = PNGEncoder::new(w);
+    let mut output = Vec::with_capacity(data.len());
 
-    encoder.encode(&data, image.width(), image.height(), ColorType::RGBA(8))
+    let encoder = PNGEncoder::new(&mut output);
+    encoder.encode(&data, image.width(), image.height(), ColorType::RGBA(8))?;
+
+    Ok(output)
 }

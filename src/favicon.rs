@@ -4,7 +4,7 @@ extern crate image;
 extern crate tar;
 
 use crate::{png, AsSize, IconError, Icon, Image, XML_OPTS};
-use image::{DynamicImage, GenericImageView};
+use image::DynamicImage;
 use resvg::usvg;
 use std::{
     convert::TryFrom,
@@ -214,8 +214,8 @@ impl Favicon {
             Entry::Occupied(_) => Err(IconError::AlreadyIncluded(key)),
             Entry::Vacant(entry) => {
                 // TODO Size this buffer
-                let buf = Vec::with_capacity((source.width() * source.height()) as usize);
-                png(source, entry.insert(buf))?;
+                let buf = png(source)?;
+                entry.insert(buf);
 
                 Ok(())
             }

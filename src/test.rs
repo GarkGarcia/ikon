@@ -3,11 +3,12 @@ use crate::{
     favicon::{self, Favicon},
     icns::{self, Icns},
     ico::{self, Ico},
-    resample, Icon, Image,
+    resample, Icon, Image, Encoded
 };
 use std::{
     fs::File,
-    io::{self, BufWriter},
+    io::{self, BufWriter, Write},
+    convert::TryFrom,
     path::Path,
 };
 
@@ -21,10 +22,27 @@ fn test_resample() -> io::Result<()> {
     let hydra = Image::open("tests/hydra.png").expect("File not found");
     let box_svg = Image::open("tests/box.svg").expect("File not found");
 
-    hydra.apply(resample::nearest, 32).expect("Failed").write(&mut file_near)?;
-    hydra.apply(resample::linear, 32).expect("Failed").write(&mut file_linear)?;
-    hydra.apply(resample::cubic, 32).expect("Failed").write(&mut file_cubic)?;
-    png(&box_svg.rasterize(resample::nearest, 32).expect("Failed"), &mut file_svg)?;
+    if let Encoded::Png(buf) = hydra.apply(resample::nearest, 32).map_err(|err| err.into())?.encode()? {
+        file_near.write_all(buf.as_ref())?;
+    } else {
+        panic!("No worky");
+    }
+
+    if let Encoded::Png(buf) = hydra.apply(resample::linear, 32).map_err(|err| err.into())?.encode()? {
+        file_linear.write_all(buf.as_ref())?;
+    } else {
+        panic!("No worky");
+    }
+
+    if let Encoded::Png(buf) = hydra.apply(resample::cubic, 32).map_err(|err| err.into())?.encode()? {
+        file_cubic.write_all(buf.as_ref())?;
+    } else {
+        panic!("No worky");
+    }
+
+    if let Encoded::Png(buf) = Encoded::try_from(box_svg.rasterize(resample::nearest, 32).map_err(|err| err.into())?)? {
+
+    }
 
     Ok(())
 }

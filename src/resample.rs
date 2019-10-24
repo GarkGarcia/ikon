@@ -35,6 +35,7 @@ fn nearest_upscale_integer(source: &DynamicImage, size: u32) -> io::Result<Dynam
     Ok(DynamicImage::ImageRgba8(imageops::resize(source, nw, nh, FilterType::Nearest)))
 }
 
+/// Rescales `source` to fit in _`size`x`size`_ image.
 fn scale(source: &DynamicImage, size: u32, filter: FilterType) -> io::Result<DynamicImage> {
     let (w ,  h) = source.dimensions();
 
@@ -43,6 +44,7 @@ fn scale(source: &DynamicImage, size: u32, filter: FilterType) -> io::Result<Dyn
     Ok(DynamicImage::ImageRgba8(imageops::resize(source, nw, nh, filter)))
 }
 
+/// Adds transparent borders to an image so that the output is square.
 fn overfit(source: &DynamicImage, size: u32) -> io::Result<DynamicImage> {
     let mut output = DynamicImage::new_rgba8(size, size);
 
@@ -73,6 +75,7 @@ pub(crate) fn svg(source: &Tree, size: u32) -> Result<DynamicImage, ResampleErro
 }
 
 #[inline]
+/// Converts a `DrawTarget` to a `DynamicImage`.
 fn draw_target_to_rgba(mut surface: DrawTarget, size: u32) -> io::Result<DynamicImage> {
     let (w, h) = (surface.width() as u32, surface.height() as u32);
     let data = surface.get_data_u8_mut().to_vec();

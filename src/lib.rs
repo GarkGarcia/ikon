@@ -298,12 +298,12 @@ pub enum IconError<K: AsSize + Send + Sync> {
     /// The `Icon` instance already includes an entry associated with this key.
     AlreadyIncluded(K),
     /// A resampling error.
-    Resample(ResError),
+    Resample(ResampleError),
 }
 
 #[derive(Debug)]
 /// The error type for resampling operations.
-pub enum ResError {
+pub enum ResampleError {
     /// Generic I/O error.
     Io(io::Error),
     /// A resampling filter produced results of dimensions
@@ -353,7 +353,7 @@ impl Image {
         &self,
         filter: F,
         size: u32,
-    ) -> Result<Self, ResError> {
+    ) -> Result<Self, ResampleError> {
         match self {
             Self::Raster(ras) => resample::apply(filter, ras, size).map(|ras| Self::Raster(ras)),
             Self::Svg(svg) => Ok(Self::Svg(svg.clone())),
@@ -365,7 +365,7 @@ impl Image {
         &self,
         filter: F,
         size: u32,
-    ) -> Result<DynamicImage, ResError> {
+    ) -> Result<DynamicImage, ResampleError> {
         match self {
             Self::Raster(ras) => resample::apply(filter, ras, size),
             Self::Svg(svg) => resample::svg(svg, size),
@@ -436,7 +436,7 @@ impl<K: AsSize + Send + Sync> Display for IconError<K> {
                 f,
                 "the icon already contains an entry associated with this key"
             ),
-            Self::Resample(err) => <ResError as Display>::fmt(&err, f),
+            Self::Resample(err) => <ResampleError as Display>::fmt(&err, f),
         }
     }
 }
@@ -445,7 +445,7 @@ impl<K: AsSize + Send + Sync + Debug> Debug for IconError<K> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::AlreadyIncluded(e) => write!(f, "Error::AlreadyIncluded({:?})", e),
-            Self::Resample(err) => <ResError as Debug>::fmt(&err, f),
+            Self::Resample(err) => <ResampleError as Debug>::fmt(&err, f),
         }
     }
 }
@@ -460,15 +460,15 @@ impl<K: AsSize + Send + Sync + Debug> error::Error for IconError<K> {
     }
 }
 
-impl<K: AsSize + Send + Sync> From<ResError> for IconError<K> {
-    fn from(err: ResError) -> Self {
+impl<K: AsSize + Send + Sync> From<ResampleError> for IconError<K> {
+    fn from(err: ResampleError) -> Self {
         Self::Resample(err)
     }
 }
 
 impl<K: AsSize + Send + Sync> From<io::Error> for IconError<K> {
     fn from(err: io::Error) -> Self {
-        Self::from(ResError::from(err))
+        Self::from(ResampleError::from(err))
     }
 }
 
@@ -482,13 +482,13 @@ impl<K: AsSize + Send + Sync> Into<io::Error> for IconError<K> {
     }
 }
 
-impl From<io::Error> for ResError {
+impl From<io::Error> for ResampleError {
     fn from(err: io::Error) -> Self {
         Self::Io(err)
     }
 }
 
-impl Display for ResError {
+impl Display for ResampleError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Io(err) => write!(f, "{}", err),
@@ -501,7 +501,7 @@ impl Display for ResError {
     }
 }
 
-impl error::Error for ResError {
+impl error::Error for ResampleError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         if let Self::Io(ref err) = self {
             Some(err)
@@ -511,7 +511,7 @@ impl error::Error for ResError {
     }
 }
 
-impl Into<io::Error> for ResError {
+impl Into<io::Error> for ResampleError {
     fn into(self) -> io::Error {
         match self {
             Self::Io(err) => err,

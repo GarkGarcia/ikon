@@ -2,7 +2,7 @@
 
 extern crate icns;
 
-use crate::{Icon, AsSize, Image, IconError, ResError};
+use crate::{Icon, AsSize, Image, IconError, ResampleError};
 use image::{DynamicImage, GenericImageView};
 use std::{
     convert::TryFrom,
@@ -59,7 +59,7 @@ impl Icon for Icns {
         // The Image::from_data method only fails when the specified
         // image dimensions do not fit the buffer length
         let image = icns::Image::from_data(icns::PixelFormat::RGBA, size, size, data)
-            .map_err(|_| ResError::MismatchedDimensions(size, icon.dimensions()))?;
+            .map_err(|_| ResampleError::MismatchedDimensions(size, icon.dimensions()))?;
 
         // The IconFamily::add_icon method only fails when the
         // specified image dimensions are not supported by ICNS

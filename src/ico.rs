@@ -2,7 +2,7 @@
 
 extern crate ico;
 
-use crate::{AsSize, Error, Icon, Image};
+use crate::{AsSize, IconError, Icon, Image};
 use image::DynamicImage;
 use std::{
     convert::TryFrom,
@@ -42,11 +42,11 @@ impl Icon for Ico {
         filter: F,
         source: &Image,
         key: Self::Key,
-    ) -> Result<(), Error<Self::Key>> {
+    ) -> Result<(), IconError<Self::Key>> {
         let size = key.as_size();
 
         if self.keys.contains(&size) {
-            return Err(Error::AlreadyIncluded(key));
+            return Err(IconError::AlreadyIncluded(key));
         }
 
         let icon = source.rasterize(filter, size)?;

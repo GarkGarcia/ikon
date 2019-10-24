@@ -166,21 +166,19 @@ where
     ///
     /// # Return Value
     ///
-    /// * Returns `Err(Error::InvalidDimensions(_))` if the dimensions provided in the
-    ///   `key` argument are not supported.
-    /// * Returns `Err(Error::AlreadyIncluded(_))` if the icon already contains
+    /// * Returns `Err(IconError::AlreadyIncluded(_))` if the icon already contains
     ///   an entry associated with `key`.
-    /// * Returns `Err(Error::MismatchedDimensions(_, (_, _)))`
-    ///   if the resampling filter provided in the `filter` argument produces
-    ///   results of dimensions other than the ones specified by `key`.
+    /// * Returns `Err(IconError::Resample(_))` if the resampling filter provided in
+    ///   the `filter` argument fails produces results of dimensions other than the
+    ///   ones specified by `key`.
     /// * Otherwise returns `Ok(())`.
     ///
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::{Ico, Image, Icon, Error};
+    /// use icon_baker::{Ico, Image, Icon, IconError};
     ///  
-    /// fn example() -> Result<(), Error> {
+    /// fn example() -> Result<(), IconError> {
     ///     let icon = Ico::new();
     ///     let src = Image::open("image.svg")?;
     ///
@@ -192,7 +190,7 @@ where
         filter: F,
         source: &Image,
         key: Self::Key,
-    ) -> Result<(), Error<Self::Key>>;
+    ) -> Result<(), IconError<Self::Key>>;
 
     /// Adds a series of entries to the icon.
     ///
@@ -204,22 +202,19 @@ where
     ///
     /// # Return Value
     ///
-    /// * Returns `Err(Error::InvalidDimensions(_))` if any of the items of `keys`
-    ///   provides unsupported dimensions.
-    /// * Returns `Err(Error::AlreadyIncluded(_))` if the icon already contains an
+    /// * Returns `Err(IconError::AlreadyIncluded(_))` if the icon already contains an
     ///   entry associated with any of the items of `keys`.
-    /// * Returns `Err(Error::MismatchedDimensions(_, (_, _)))`
-    ///   if the resampling filter provided in the `filter` argument produces
-    ///   results of dimensions other than the ones specified by the items of
-    ///   `keys`.
+    /// * Returns `Err(IconError::Resample(_))` if the resampling filter provided in
+    ///   the `filter` argument fails or produces results of dimensions other than the
+    ///   ones specified by the items of `keys`.
     /// * Otherwise returns `Ok(())`.
     ///
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::{Icns, Image, Icon, Error};
+    /// use icon_baker::{Icns, Image, Icon, IconError};
     ///  
-    /// fn example() -> Result<(), Error> {
+    /// fn example() -> Result<(), IconError> {
     ///     let icon = Icns::new();
     ///     let src = Image::open("image.svg")?;
     ///
@@ -235,7 +230,7 @@ where
         mut filter: F,
         source: &Image,
         keys: I,
-    ) -> Result<(), Error<Self::Key>> {
+    ) -> Result<(), IconError<Self::Key>> {
         for key in keys {
             self.add_entry(|src, size| filter(src, size), source, key)?;
         }
@@ -299,7 +294,7 @@ pub enum Image {
 }
 
 /// The error type for operations of the `Icon` trait.
-pub enum Error<K: AsSize + Send + Sync> {
+pub enum IconError<K: AsSize + Send + Sync> {
     /// The `Icon` instance already includes an entry associated with this key.
     AlreadyIncluded(K),
     /// A resampling error.
@@ -352,6 +347,8 @@ impl Image {
         }
     }
 
+    /// Applies a _resampling filter_ to the image. For _vector graphics_,
+    /// the method simply returns a copy of the image.
     pub fn apply<'a, F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &self,
         filter: F,
@@ -363,6 +360,7 @@ impl Image {
         }
     }
 
+    /// Rasterizes the `Image` to a `DynamicImage`.
     pub fn rasterize<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &self,
         filter: F,
@@ -418,20 +416,20 @@ impl From<DynamicImage> for Image {
 unsafe impl Send for Image {}
 unsafe impl Sync for Image {}
 
-impl<K: AsSize + Send + Sync> Error<K> {
-    /// Converts `self` to a `Error<T>` using `f`.
+impl<K: AsSize + Send + Sync> IconError<K> {
+    /// Converts `self` to a `IconError<T>` using `f`.
     pub fn map<T: AsSize + Send + Sync, F: FnOnce(K) -> T>(
         self,
         f: F
-    ) -> Error<T> {
+    ) -> IconError<T> {
         match self {
-            Self::AlreadyIncluded(e) => Error::AlreadyIncluded(f(e)),
-            Self::Resample(err) => Error::Resample(err),
+            Self::AlreadyIncluded(e) => IconError::AlreadyIncluded(f(e)),
+            Self::Resample(err) => IconError::Resample(err),
         }
     }
 }
 
-impl<K: AsSize + Send + Sync> Display for Error<K> {
+impl<K: AsSize + Send + Sync> Display for IconError<K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::AlreadyIncluded(_) => write!(
@@ -443,7 +441,7 @@ impl<K: AsSize + Send + Sync> Display for Error<K> {
     }
 }
 
-impl<K: AsSize + Send + Sync + Debug> Debug for Error<K> {
+impl<K: AsSize + Send + Sync + Debug> Debug for IconError<K> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::AlreadyIncluded(e) => write!(f, "Error::AlreadyIncluded({:?})", e),
@@ -452,7 +450,7 @@ impl<K: AsSize + Send + Sync + Debug> Debug for Error<K> {
     }
 }
 
-impl<K: AsSize + Send + Sync + Debug> error::Error for Error<K> {
+impl<K: AsSize + Send + Sync + Debug> error::Error for IconError<K> {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         if let Self::Resample(ref err) = self {
             err.source()
@@ -462,19 +460,19 @@ impl<K: AsSize + Send + Sync + Debug> error::Error for Error<K> {
     }
 }
 
-impl<K: AsSize + Send + Sync> From<ResError> for Error<K> {
+impl<K: AsSize + Send + Sync> From<ResError> for IconError<K> {
     fn from(err: ResError) -> Self {
         Self::Resample(err)
     }
 }
 
-impl<K: AsSize + Send + Sync> From<io::Error> for Error<K> {
+impl<K: AsSize + Send + Sync> From<io::Error> for IconError<K> {
     fn from(err: io::Error) -> Self {
         Self::from(ResError::from(err))
     }
 }
 
-impl<K: AsSize + Send + Sync> Into<io::Error> for Error<K> {
+impl<K: AsSize + Send + Sync> Into<io::Error> for IconError<K> {
     fn into(self) -> io::Error {
         if let Self::Resample(err) = self {
             err.into()

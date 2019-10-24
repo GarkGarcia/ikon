@@ -3,7 +3,7 @@
 extern crate image;
 extern crate tar;
 
-use crate::{png, AsSize, Error, Icon, Image, XML_OPTS};
+use crate::{png, AsSize, IconError, Icon, Image, XML_OPTS};
 use image::{DynamicImage, GenericImageView};
 use resvg::usvg;
 use std::{
@@ -207,11 +207,11 @@ impl Favicon {
         &mut self,
         source: &DynamicImage,
         key: Key
-    ) -> Result<(), Error<Key>> {
+    ) -> Result<(), IconError<Key>> {
         let size = key.as_size();
 
         match self.pngs.entry(size) {
-            Entry::Occupied(_) => Err(Error::AlreadyIncluded(key)),
+            Entry::Occupied(_) => Err(IconError::AlreadyIncluded(key)),
             Entry::Vacant(entry) => {
                 // TODO Size this buffer
                 let buf = Vec::with_capacity((source.width() * source.height()) as usize);
@@ -224,11 +224,11 @@ impl Favicon {
 
     #[inline]
     /// Adds an SVG entry.
-    fn add_svg(&mut self, svg: &usvg::Tree, key: Key) -> Result<(), Error<Key>> {
+    fn add_svg(&mut self, svg: &usvg::Tree, key: Key) -> Result<(), IconError<Key>> {
         let size = key.as_size();
 
         if !self.svg_entries.insert(size) {
-            Err(Error::AlreadyIncluded(key))
+            Err(IconError::AlreadyIncluded(key))
         } else {
             let buf = svg.to_string(XML_OPTS).into_bytes();
             let entry = self.svgs.entry(buf).or_default();
@@ -291,7 +291,7 @@ impl Icon for Favicon {
         filter: F,
         source: &Image,
         key: Self::Key,
-    ) -> Result<(), Error<Self::Key>> {
+    ) -> Result<(), IconError<Self::Key>> {
         match source.apply(filter, key.as_size())? {
             Image::Raster(ras) => self.add_raster(&ras, key),
             Image::Svg(svg) => self.add_svg(&svg, key)

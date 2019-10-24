@@ -2,7 +2,7 @@
 
 extern crate icns;
 
-use crate::{Icon, AsSize, Image, Error, ResError};
+use crate::{Icon, AsSize, Image, IconError, ResError};
 use image::{DynamicImage, GenericImageView};
 use std::{
     convert::TryFrom,
@@ -47,13 +47,13 @@ impl Icon for Icns {
         filter: F,
         source: &Image,
         key: Self::Key
-    ) -> Result<(), Error<Self::Key>> {
+    ) -> Result<(), IconError<Self::Key>> {
         let size = key.as_size();
         let icon = source.rasterize(filter, size)?;
         let data = icon.to_rgba().into_vec();
 
         if self.keys.contains(&size) {
-            return Err(Error::AlreadyIncluded(key));
+            return Err(IconError::AlreadyIncluded(key));
         }
 
         // The Image::from_data method only fails when the specified

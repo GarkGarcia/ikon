@@ -305,11 +305,11 @@ impl Image {
         file.read_exact(&mut signature)?;
 
         match signature {
-            [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] => load_raster(file, ImageFormat::PNG),
+            [0x89, 0x50, 0x4e, 0x47, 0xd, 0xa, 0x1a, 0xa] => load_raster(file, ImageFormat::PNG),
             [0xff, 0xd8, 0xff, _, _, _, _, _] => load_raster(file, ImageFormat::JPEG),
             [0x47, 0x49, 0x46, 0x38, 0x37, 0x61, _, _]
             | [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, _, _] => load_raster(file, ImageFormat::GIF),
-            [0x42, 0x4D, _, _, _, _, _, _] => load_raster(file, ImageFormat::BMP),
+            [0x42, 0x4d, _, _, _, _, _, _] => load_raster(file, ImageFormat::BMP),
             [0x57, 0x45, 0x42, 0x50, _, _, _, _] => load_raster(file, ImageFormat::WEBP),
             _ => load_vector(file)
         }

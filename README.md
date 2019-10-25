@@ -102,12 +102,11 @@ fn example() -> io::Result<()> {
 # Support
 
 **IconBaker** uses [`image`](https://crates.io/crates/image) for _raster graphics_ manipulations and 
-[`resvg`](https://crates.io/crates/resvg/0.6.1) with the [`raqote`](https://crates.io/crates/raqote) 
-backend for `svg` rasterization.
+[`resvg`](https://crates.io/crates/resvg) with the [`raqote`](https://crates.io/crates/raqote) backend
+for `svg` rasterization.
 
-Note that some _file formats_ supported by `image` were explicitly left out.
-
- Note that `raqote` requires [`cmake`](https://cmake.org/) to build.
+Note that some _file formats_ supported by `image` were explicitly left out of `icon_baker` because
+they were considered irrelevant to the library's domain.
 
 | Format | Supported?                                                             | 
 |--------|------------------------------------------------------------------------| 
@@ -118,12 +117,17 @@ Note that some _file formats_ supported by `image` were explicitly left out.
 | `webp` | Lossy(Luma channel only)                                               | 
 | `svg`  | [Static SVG Full 1.1](https://github.com/RazrFalcon/resvg#svg-support) |
 
-## License
+# Build Requirements
+
+**IconBaker** relies on [`harfbuzz_rs`](https://crates.io/crates/harfbuzz_rs), wich means
+[CMake](https://cmake.org/) is required to installed on the system for it build.
+
+# License
 
 Licensed under MIT license([LICENSE-MIT](https://github.com/GarkGarcia/icon_baker/blob/master/LICENSE) 
 or http://opensource.org/licenses/MIT).
 
-## Contribution
+# Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the 
 work by you shall be licensed as above, without any additional terms or conditions.

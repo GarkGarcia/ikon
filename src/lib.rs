@@ -95,13 +95,13 @@ pub extern crate image;
 pub extern crate resvg;
 
 use crate::usvg::Tree;
-use image::{png::PNGEncoder, ColorType, DynamicImage, GenericImageView, ImageError};
+use image::{DynamicImage, GenericImageView, ImageError};
 pub use resvg::{
     raqote,
     usvg::{self, XmlIndent, XmlOptions},
 };
 use std::{
-    convert::{From, TryFrom},
+    convert::From,
     error,
     fmt::{self, Debug, Display, Formatter},
     fs::File,
@@ -113,18 +113,13 @@ pub mod favicon;
 pub mod icns;
 pub mod ico;
 pub mod resample;
+pub mod encode;
 #[cfg(test)]
 mod test;
 
 const STD_CAPACITY: usize = 7;
 const MISMATCHED_DIM_ERR: &str =
     "a resampling filter returned an image of dimensions other than the ones specified by it's arguments";
-
-const XML_OPTS: XmlOptions = XmlOptions {
-    indent: XmlIndent::None,
-    attributes_indent: XmlIndent::None,
-    use_single_quote: false,
-};
 
 /// A generic representation of an icon encoder.
 pub trait Icon
@@ -293,16 +288,6 @@ pub enum Image {
     Svg(Tree),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-/// A wrapper for images encoded in a particular
-/// _file format_.
-pub enum Encoded {
-    /// A _PNG_ encoded image.
-    Png(Vec<u8>),
-    /// An _SVG_ encoded image.
-    Svg(Vec<u8>)
-}
-
 /// The error type for operations of the `Icon` trait.
 pub enum IconError<K: AsSize + Send + Sync> {
     /// The `Icon` instance already includes an entry associated with this key.
@@ -357,33 +342,6 @@ impl Image {
         }
     }
 
-    /// Applies a _resampling filter_ to the image. For _vector graphics_,
-    /// the method simply returns a copy of the image.
-    /// 
-    /// # Return Value
-    /// 
-    /// * Returns `Err(ResampleError::Io(_))` if the filter fails.
-    /// * Returns `Err(ResampleError::MismatchedDimensions(_, _)` if the
-    ///   filter specified by `filter` returns an image of dimensions other
-    ///   than the ones specified by `size`.
-    /// * Returns `Ok(_)` otherwise.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// let rescaled = image.apply(resample::nearest, 32)?;
-    /// ```
-    pub fn apply<'a, F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
-        &self,
-        filter: F,
-        size: u32,
-    ) -> Result<Self, ResampleError> {
-        match self {
-            Self::Raster(ras) => resample::apply(filter, ras, size).map(|ras| Self::Raster(ras)),
-            Self::Svg(svg) => Ok(Self::Svg(svg.clone())),
-        }
-    }
-
     /// Rasterizes the `Image` to a `DynamicImage`.
     /// 
     /// For _raster graphics_ the moethod simply applies the resampling filter
@@ -398,13 +356,6 @@ impl Image {
         match self {
             Self::Raster(ras) => resample::apply(filter, ras, size),
             Self::Svg(svg) => resample::svg(svg, size),
-        }
-    }
-
-    pub fn encode(&self) -> io::Result<Encoded> {
-        match self {
-            Self::Raster(ras) => Ok(Encoded::Png(png(ras)?)),
-            Self::Svg(svg) => Ok(Encoded::Svg(svg.to_string(XML_OPTS).into_bytes())),
         }
     }
 
@@ -444,15 +395,6 @@ impl From<DynamicImage> for Image {
 
 unsafe impl Send for Image {}
 unsafe impl Sync for Image {}
-
-impl TryFrom<DynamicImage> for Encoded {
-    type Error = io::Error;
-
-    fn try_from(image: DynamicImage) -> io::Result<Self> {
-        let buf = png(&image)?;
-        Ok(Encoded::Png(buf))
-    }
-}
 
 impl<K: AsSize + Send + Sync> IconError<K> {
     /// Converts `self` to a `IconError<T>` using `f`.
@@ -556,14 +498,4 @@ impl Into<io::Error> for ResampleError {
             Self::MismatchedDimensions(_, _) => io::Error::from(io::ErrorKind::InvalidData),
         }
     }
-}
-
-fn png(image: &DynamicImage) -> io::Result<Vec<u8>> {
-    let data = image.to_rgba().into_raw();
-    let mut output = Vec::with_capacity(data.len());
-
-    let encoder = PNGEncoder::new(&mut output);
-    encoder.encode(&data, image.width(), image.height(), ColorType::RGBA(8))?;
-
-    Ok(output)
 }

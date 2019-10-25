@@ -3,7 +3,7 @@
 extern crate image;
 extern crate tar;
 
-use crate::{png, AsSize, IconError, Icon, Image, XML_OPTS};
+use crate::{encode, resample, AsSize, IconError, Icon, Image};
 use image::DynamicImage;
 use resvg::usvg;
 use std::{
@@ -214,7 +214,7 @@ impl Favicon {
             Entry::Occupied(_) => Err(IconError::AlreadyIncluded(key)),
             Entry::Vacant(entry) => {
                 // TODO Size this buffer
-                let buf = png(source)?;
+                let buf = encode::png(source)?;
                 entry.insert(buf);
 
                 Ok(())
@@ -230,7 +230,7 @@ impl Favicon {
         if !self.svg_entries.insert(size) {
             Err(IconError::AlreadyIncluded(key))
         } else {
-            let buf = svg.to_string(XML_OPTS).into_bytes();
+            let buf = encode::svg(svg);
             let entry = self.svgs.entry(buf).or_default();
 
             entry.push(size);
@@ -292,8 +292,8 @@ impl Icon for Favicon {
         source: &Image,
         key: Self::Key,
     ) -> Result<(), IconError<Self::Key>> {
-        match source.apply(filter, key.as_size())? {
-            Image::Raster(ras) => self.add_raster(&ras, key),
+        match source {
+            Image::Raster(ras) => self.add_raster(&resample::apply(filter, ras, key.as_size())?, key),
             Image::Svg(svg) => self.add_svg(&svg, key)
         }
     }

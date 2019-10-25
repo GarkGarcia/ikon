@@ -96,12 +96,12 @@ pub extern crate resvg;
 
 use crate::usvg::Tree;
 pub use crate::error::{IconError, ResampleError};
-use image::{DynamicImage, GenericImageView, ImageError};
+use image::{DynamicImage, GenericImageView, ImageError, ImageFormat};
 pub use resvg::{raqote, usvg};
 use std::{
     convert::From,
     fs::File,
-    io::{self, Write},
+    io::{self, Write, Read, BufReader},
     path::Path,
 };
 
@@ -298,21 +298,20 @@ impl Image {
     /// let img = Image::open("source.png")?;
     /// ```
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
-        match image::open(&path) {
-            Ok(img) => Ok(Image::from(img)),
-            Err(ImageError::InsufficientMemory) => Err(io::Error::from(io::ErrorKind::Other)),
-            Err(ImageError::IoError(err)) => Err(err),
-            Err(ImageError::UnsupportedError(_)) => {
-                match Tree::from_file(path, &usvg::Options::default()) {
-                    Ok(img) => Ok(Image::from(img)),
-                    Err(usvg::Error::InvalidFileSuffix) => {
-                        Err(io::Error::from(io::ErrorKind::InvalidInput))
-                    }
-                    Err(usvg::Error::FileOpenFailed) => Err(io::Error::from(io::ErrorKind::Other)),
-                    _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
-                }
-            }
-            _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
+        let mut file = File::open(path)?;
+
+        // Read the file's signature
+        let mut signature: [u8;8] = [0;8];
+        file.read_exact(&mut signature)?;
+
+        match signature {
+            [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] => load_raster(file, ImageFormat::PNG),
+            [0xff, 0xd8, 0xff, _, _, _, _, _] => load_raster(file, ImageFormat::JPEG),
+            [0x47, 0x49, 0x46, 0x38, 0x37, 0x61, _, _]
+            | [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, _, _] => load_raster(file, ImageFormat::GIF),
+            [0x42, 0x4D, _, _, _, _, _, _] => load_raster(file, ImageFormat::BMP),
+            [0x57, 0x45, 0x42, 0x50, _, _, _, _] => load_raster(file, ImageFormat::WEBP),
+            _ => load_vector(file)
         }
     }
 
@@ -369,3 +368,31 @@ impl From<DynamicImage> for Image {
 
 unsafe impl Send for Image {}
 unsafe impl Sync for Image {}
+
+/// Loads raster graphics to an `Image`.
+fn load_raster(file: File, format: ImageFormat) -> io::Result<Image> {
+    match image::load(BufReader::new(file), format) {
+        Ok(img) => Ok(Image::from(img)),
+        Err(ImageError::InsufficientMemory) => Err(io::Error::from(io::ErrorKind::Other)),
+        Err(ImageError::IoError(err)) => Err(err),
+        _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
+    }
+}
+
+/// Loads vector graphics to an `Image`.
+fn load_vector(mut file: File) -> io::Result<Image> {
+    file.sync_all()?;
+    let len = file.metadata()?.len() as usize;
+
+    let mut contents = Vec::with_capacity(len);
+    file.read_to_end(&mut contents)?;
+
+    match Tree::from_data(contents.as_ref(), &usvg::Options::default()) {
+        Ok(img) => Ok(Image::from(img)),
+        Err(usvg::Error::InvalidFileSuffix) => {
+            Err(io::Error::from(io::ErrorKind::InvalidInput))
+        }
+        Err(usvg::Error::FileOpenFailed) => Err(io::Error::from(io::ErrorKind::Other)),
+        _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
+    }
+}

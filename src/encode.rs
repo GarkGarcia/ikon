@@ -11,7 +11,7 @@ const XML_OPTS: XmlOptions = XmlOptions {
     use_single_quote: false,
 };
 
-/// Encodes _raster graphics_ in _PNG_ buffers.
+/// Converts _raster graphics_ to _PNG_-encoded buffers.
 pub fn png(image: &DynamicImage) -> io::Result<Vec<u8>> {
     let data = image.to_rgba().into_raw();
     let mut output = Vec::with_capacity(data.len());
@@ -23,7 +23,7 @@ pub fn png(image: &DynamicImage) -> io::Result<Vec<u8>> {
 }
 
 #[inline]
-/// Converts _vector graphics_ in UTF-8 encoded _SVG_ buffers.
+/// Converts _vector graphics_ to _UTF8_-encoded _SVG_ strings.
 pub fn svg(image: &Tree) -> Vec<u8> {
     image.to_string(XML_OPTS).into_bytes()
 }

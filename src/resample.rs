@@ -26,6 +26,23 @@ pub fn nearest(source: &DynamicImage, size: u32) -> io::Result<DynamicImage> {
     overfit(&scaled, size)
 }
 
+/// Aplies a resampling filter to `source` and checks if the dimensions
+/// of the output match the ones specified by `size`.
+pub fn apply<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
+    mut filter: F,
+    source: &DynamicImage,
+    size: u32
+) -> Result<DynamicImage, ResampleError> {
+    let icon = filter(source, size)?;
+    let dims = icon.dimensions();
+
+    if dims != (size, size) {
+        Err(ResampleError::MismatchedDimensions(size, dims))
+    } else {
+        Ok(icon)
+    }
+}
+
 fn nearest_upscale_integer(source: &DynamicImage, size: u32) -> io::Result<DynamicImage> {
     let (w ,  h) = source.dimensions();
 
@@ -85,22 +102,5 @@ fn draw_target_to_rgba(mut surface: DrawTarget, size: u32) -> io::Result<Dynamic
     match ImageBuffer::<Bgra<u8>, Vec<u8>>::from_vec(w, h, data) {
         Some(buf) => overfit(&DynamicImage::ImageBgra8(buf), size),
         None      => panic!("Buffer in not big enought")
-    }
-}
-
-/// Aplies a resampling filter to `source` and checks if the dimensions
-/// of the output match the ones specified by `size`.
-pub(crate) fn apply<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
-    mut filter: F,
-    source: &DynamicImage,
-    size: u32
-) -> Result<DynamicImage, ResampleError> {
-    let icon = filter(source, size)?;
-    let dims = icon.dimensions();
-
-    if dims != (size, size) {
-        Err(ResampleError::MismatchedDimensions(size, dims))
-    } else {
-        Ok(icon)
     }
 }

@@ -54,12 +54,13 @@ The `Icon::add_entry` can be used to automatically resample
 _source images_ and converts them to _entries_ in an icon.
 
 ```rust
-use icon_baker::{Ico, Image, Icon, IconError};
+use icon_baker::{ico::{Ico, Key}, Image, Icon, IconError};
 
 fn example() -> Result<(), IconError> {
     let icon = Ico::new();
     let src = Image::open("image.svg")?;
-    icon.add_entry(resample::linear, &img, 32)
+
+    icon.add_entry(resample::linear, &img, Key(32))
 }
 ```
 

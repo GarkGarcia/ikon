@@ -46,12 +46,13 @@
 //! _source images_ and converts them to _entries_ in an icon.
 //! 
 //! ```rust
-//! use icon_baker::{Ico, Image, Icon, IconError};
+//! use icon_baker::{ico::{Ico, Key}, Image, Icon, IconError};
 //! 
 //! fn example() -> Result<(), IconError> {
 //!     let icon = Ico::new();
 //!     let src = Image::open("image.svg")?;
-//!     icon.add_entry(resample::linear, &img, 32)
+//! 
+//!     icon.add_entry(resample::linear, &img, Key(32))
 //! }
 //! ```
 //! 
@@ -95,10 +96,7 @@ pub extern crate resvg;
 
 use crate::usvg::Tree;
 use image::{DynamicImage, GenericImageView, ImageError};
-pub use resvg::{
-    raqote,
-    usvg::{self, XmlIndent, XmlOptions},
-};
+pub use resvg::{raqote, usvg};
 use std::{
     convert::From,
     error,
@@ -170,13 +168,13 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::{Ico, Image, Icon, IconError};
+    /// use icon_baker::{ico::{Ico, Key}, Image, Icon, IconError};
     ///  
     /// fn example() -> Result<(), IconError> {
     ///     let icon = Ico::new();
     ///     let src = Image::open("image.svg")?;
     ///
-    ///     icon.add_entry(resample::linear, &img, 32)
+    ///     icon.add_entry(resample::linear, &img, Key(32))
     /// }
     /// ```
     fn add_entry<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
@@ -206,7 +204,7 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::{Icns, Image, Icon, IconError};
+    /// use icon_baker::{icns::{Icns, Key}, Image, Icon, IconError};
     ///  
     /// fn example() -> Result<(), IconError> {
     ///     let icon = Icns::new();
@@ -215,7 +213,7 @@ where
     ///     icon.add_entries(
     ///         resample::linear,
     ///         &src,
-    ///         vec![32, 64, 128]
+    ///         vec![Key::Rgba32, Key::Rgba64, Key::Rgba128]
     ///     )
     /// }
     /// ```

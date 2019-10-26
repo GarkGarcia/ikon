@@ -163,13 +163,13 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::{ico::{Ico, Key}, Image, Icon, IconError};
+    /// use icon_baker::{Icon, Image, IconError};
     ///  
-    /// fn example() -> Result<(), IconError> {
-    ///     let icon = Ico::new();
+    /// fn example<I: Icon>() -> Result<(), IconError> {
+    ///     let icon = I::new();
     ///     let src = Image::open("image.svg")?;
     ///
-    ///     icon.add_entry(resample::linear, &img, Key(32))
+    ///     icon.add_entry(resample::linear, &img, I::Key(32))
     /// }
     /// ```
     fn add_entry<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
@@ -199,16 +199,16 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::{icns::{Icns, Key}, Image, Icon, IconError};
+    /// use icon_baker::{Icon, Image, IconError};
     ///  
-    /// fn example() -> Result<(), IconError> {
-    ///     let icon = Icns::new();
+    /// fn example<I: Icon>() -> Result<(), IconError> {
+    ///     let icon = I::new();
     ///     let src = Image::open("image.svg")?;
     ///
     ///     icon.add_entries(
     ///         resample::linear,
     ///         &src,
-    ///         vec![Key::Rgba32, Key::Rgba64, Key::Rgba128]
+    ///         vec![I::Key::Rgba32, I::Key::Rgba64, I::Key::Rgba128]
     ///     )
     /// }
     /// ```
@@ -230,11 +230,11 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::favicon::Favicon;
+    /// use icon_baker::Icon;
     /// use std::{io, fs::File};
     ///  
-    /// fn example() -> io::Result<()> {
-    ///     let icon = Favicon::new();
+    /// fn example<I: Icon>() -> io::Result<()> {
+    ///     let icon = I::new();
     ///
     ///     /* Process the icon */
     ///
@@ -249,11 +249,11 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::favicon::Favicon;
+    /// use icon_baker::Icon;
     /// use std::{io, fs::File};
     ///  
-    /// fn example() -> io::Result<()> {
-    ///     let icon = Favicon::new();
+    /// fn example<I: Icon>() -> io::Result<()> {
+    ///     let icon = I::new();
     ///
     ///     /* Process the icon */
     ///

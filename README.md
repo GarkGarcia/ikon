@@ -120,7 +120,7 @@ they were considered irrelevant to the library's domain.
 # Build Requirements
 
 **IconBaker** relies on [`harfbuzz_rs`](https://crates.io/crates/harfbuzz_rs), wich means
-[CMake](https://cmake.org/) is required to installed on the system for it build.
+[CMake](https://cmake.org/) is required to be installed for it build.
 
 # License
 

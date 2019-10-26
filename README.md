@@ -28,14 +28,13 @@ For example, _icon_ formats that only differentiate _entries_ by the dimensions 
 _images_ are labeled by _positive integers_, such as the `.ico` and `.icns` file-formats.
 
 On the other hand, _icon_ formats that distinguish their _entries_ by 
-_[path](https://en.wikipedia.org/wiki/Path_%28computing%29)_, such as _png sequeces_ and
+_[path](https://en.wikipedia.org/wiki/Path_%28computing%29)_, such as
 _[FreeDesktop icon themes](https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html)_
 , are labeled by _path_.
 
-Note that, since the dimensions
-of the _images_ contained in an _entry_ are dictated by their associated _entries_, every _key_
-must be convertible to a _positive integers_. Therefore, all _key types_ are required to implement
-`AsRef<u32>`.
+Note that, since the dimensions of the _images_ contained in an _entry_ are dictated by their
+associated _entries_, every _key_ must be convertible to a _positive integers_. Therefore, all
+_key types_ are required to implement `AsSize`.
 
 ## Resampling
 

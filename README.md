@@ -70,7 +70,7 @@ Implementors of the `Icon` trait can be written to any object
 that implements `io::Write` with the `Icon::write` method.
 
 ```rust
-use icon_baker::favicon::Favicon;
+use icon_baker::{favicon::Favicon, Icon};
 use std::{io, fs::File};
  
 fn example() -> io::Result<()> {
@@ -87,7 +87,7 @@ Alternatively, icons can be directly written to a file on
 disk with `Icon::save` method.
 
 ```rust
-use icon_baker::favicon::Favicon;
+use icon_baker::{favicon::Favicon, Icon};
 use std::{io, fs::File};
  
 fn example() -> io::Result<()> {

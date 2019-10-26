@@ -235,7 +235,7 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::favicon::Favicon;
+    /// use icon_baker::{favicon::Favicon, Icon};
     /// use std::{io, fs::File};
     ///  
     /// fn example() -> io::Result<()> {
@@ -254,7 +254,7 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use icon_baker::favicon::Favicon;
+    /// use icon_baker::{favicon::Favicon, Icon};
     /// use std::{io, fs::File};
     ///  
     /// fn example() -> io::Result<()> {

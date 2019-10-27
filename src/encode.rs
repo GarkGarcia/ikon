@@ -1,9 +1,10 @@
 //! Traits an functions to assist in encoding commonly used _icon formats_.
 
-use crate::{AsSize, Image, EncodingError};
-use image::{png::PNGEncoder, ColorType, DynamicImage, GenericImageView};
-use std::{io, path::Path, fs::File};
+use crate::{AsSize, Image};
+use image::{png::PNGEncoder, bmp::BMPEncoder, ColorType, DynamicImage, GenericImageView};
+use std::{io::{self, BufWriter}, path::Path, fs::File};
 use resvg::usvg::{Tree, XmlIndent, XmlOptions};
+pub use crate::error::EncodingError;
 
 const XML_OPTS: XmlOptions = XmlOptions {
     indent: XmlIndent::None,
@@ -89,11 +90,17 @@ pub trait Encode: Sized {
     /// # Example
     /// 
     /// ```rust
-    /// let icon = Icon::with_capacity();
+    /// let icon = Icon::with_capacity(5);
     /// ```
     fn with_capacity(capacity: usize) -> Self;
 
     /// Returns the number of _entries_ contained in the icon.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// let len = icon.len();
+    /// ```
     fn len(&self) -> usize;
 
     /// Adds an individual entry to the icon.
@@ -220,9 +227,9 @@ pub trait Save: Encode {
 }
 
 impl<T: Write> Save for T {
+    #[inline]
     fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()> {
-        let mut file = File::create(path)?;
-
+        let mut file = BufWriter::new(File::create(path)?);
         self.write(&mut file)
     }
 }
@@ -233,6 +240,17 @@ pub fn png(image: &DynamicImage) -> io::Result<Vec<u8>> {
     let mut output = Vec::with_capacity(data.len());
 
     let encoder = PNGEncoder::new(&mut output);
+    encoder.encode(&data, image.width(), image.height(), ColorType::RGBA(8))?;
+
+    Ok(output)
+}
+
+/// Converts _raster graphics_ to _BMP_-encoded buffers.
+pub fn bmp(image: &DynamicImage) -> io::Result<Vec<u8>> {
+    let data = image.to_rgba().into_raw();
+    let mut output = Vec::with_capacity(data.len());
+
+    let mut encoder = BMPEncoder::new(&mut output);
     encoder.encode(&data, image.width(), image.height(), ColorType::RGBA(8))?;
 
     Ok(output)

@@ -1,10 +1,138 @@
-use crate::{AsSize, Image};
-use std::io::{self, Read};
+//! Traits an functions to assist in dencoding commonly used _icon formats_.
 
-pub trait Decoder where Self: Sized {
+use crate::{load_raster, load_vector, AsSize, Image};
+use std::{io::{self, Read, Cursor}, slice::Iter};
+use image::ImageFormat;
+
+/// The `Decoder` trait represents a generic icon decoder, providing methods
+/// for generating icons from byte streams, as well as functionality querying
+/// and inspecting _entries_.
+/// 
+/// # Example
+/// 
+/// In this example we'll create a very simple `Decoder` implementor whose
+/// keys are _positive integers_. First of all, we'll need a `Key` type:
+/// 
+/// ```rust
+/// #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+/// pub struct Key(pub u16);
+/// 
+/// impl AsSize for Key {
+///     fn as_size(&self) -> u32 {
+///         if self.0 == 0 {
+///             256
+///         } else {
+///             *self.0
+///         }
+///     }
+/// }
+/// ```
+/// 
+/// Note that `Key(0)` represents `Key(256)`. We can then implement our `Icon` type.
+/// 
+/// ```rust
+/// #[derive(Clone)]
+/// pub struct Icon {
+///     internal: HashMap<Key, DynamicImage>
+/// }
+/// 
+/// impl Decoder for Icon {
+///     type Key = Key;
+/// 
+///     fn read<R: Read>(r: R) -> io::Result<Self> {
+///         // Some decoding in here . . .
+///     }
+/// 
+///     fn len(&self) -> usize {
+///         self.internal.len()
+///     }
+/// 
+///     fn contains_key(key: &Self::Key) -> bool {
+///         self.internal.contains_key(key)
+///     }
+/// 
+///     fn get(&self, key: &Self::Key) -> Option<&Image> {
+///         self.internal.get(key)
+///     }
+/// 
+///     fn entries(&self) -> Iter<(Self::Key, Image)> {
+///         let output = Vec::with_capacity(self.len());
+/// 
+///         for entry in self.internal {
+///             output.push(entry);
+///         }
+/// 
+///         output.iter()
+///     }
+/// }
+/// ```
+pub trait Decoder: Sized {
     type Key: AsSize + Send + Sync;
 
+    /// Parses and loads an icon into memmory.
     fn read<R: Read>(r: R) -> io::Result<Self>;
+
+    /// Returns the number of _entries_ contained in the icon.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// let len = icon.len();
+    /// ```
+    fn len(&self) -> usize;
+
+    /// Returns `true` if the icon includes an entry associated with `key`.
+    /// Otherwise returns `false`.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// if icon.contains_key(&Key(32)) {
+    ///     // Do this . . .
+    /// } else {
+    ///     // Do that . . .
+    /// }
+    /// ```
+    fn contains_key(key: &Self::Key) -> bool;
     
-    fn entry(key: &Self::Key) -> Option<&Image>;
+    /// Returns `Some(entry)` if the icon includes an entry associated with `key`.
+    /// Otherwise returns `None`.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// if let Some(entry) = icon.entry(&Key(32)) {
+    ///     // Process the entry . . .
+    /// }
+    /// ```
+    fn get(&self, key: &Self::Key) -> Option<&Image>;
+
+    /// Returns an iterator over the entries of the icon.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// for (key, image) in icon.entries() {
+    ///     // Do something . . .
+    /// }
+    /// ```
+    fn entries(&self) -> Iter<(Self::Key, Image)>;
+}
+
+#[inline]
+/// Converts _PNG_-encoded buffers to _raster graphics_.
+pub fn png(buf: &[u8]) -> io::Result<Image> {
+    load_raster(Cursor::new(buf), ImageFormat::PNG)
+}
+
+#[inline]
+/// Converts _BMP_-encoded buffers to _raster graphics_.
+pub fn bmp(buf: &[u8]) -> io::Result<Image> {
+    load_raster(Cursor::new(buf), ImageFormat::BMP)
+}
+
+#[inline]
+/// Converts _UTF8_-encoded _SVG_ strings to _vector graphics_.
+pub fn svg(buf: &[u8]) -> io::Result<Image> {
+    load_vector(Cursor::new(buf))
 }

@@ -39,65 +39,7 @@ Pictures are scaled using resampling filters, which are represented by _function
 _image and a size and return a re-scaled image_.
 
 This allows the users of this crate to provide their custom resampling filters. Common resampling 
-<<<<<<< HEAD
-filters are provided in the 
-[`resample`](https://docs.rs/icon_baker/2.2.0/icon_baker/resample/index.html) module.
-
-# Examples
-
-## General Usage
-
-The `Icon::add_entry` can be used to automatically resample
-_source images_ and converts them to _entries_ in an icon.
-
-```rust
-use icon_baker::{ico::{Ico, Key}, Image, Icon, IconError};
-
-fn example() -> Result<(), IconError> {
-    let icon = Ico::new();
-    let src = Image::open("image.svg")?;
-
-    icon.add_entry(resample::linear, &img, Key(32))
-}
-```
-
-## Writing to Disk
-
-Implementors of the `Icon` trait can be written to any object
-that implements `io::Write` with the `Icon::write` method.
-
-```rust
-use icon_baker::{favicon::Favicon, Icon};
-use std::{io, fs::File};
- 
-fn example() -> io::Result<()> {
-    let icon = Favicon::new();
-
-    // Process the icon ...
-
-    let file = File::create("out.icns")?;
-    icon.write(file)
-}
-```
-
-Alternatively, icons can be directly written to a file on
-disk with `Icon::save` method.
-
-```rust
-use icon_baker::{favicon::Favicon, Icon};
-use std::{io, fs::File};
- 
-fn example() -> io::Result<()> {
-    let icon = Favicon::new();
-
-    /* Process the icon */
-
-    icon.save("./output/")
-}
-```
-=======
-filters are provided in the [`resample`](https://docs.rs/ikon/2.2.0/ikon/resample/index.html) module.
->>>>>>> 4.0
+filters are provided in the [`resample`](https://docs.rs/ikon/ikon/resample/index.html) module.
 
 # Support
 

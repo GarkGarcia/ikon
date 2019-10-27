@@ -6,16 +6,13 @@ authors = [
     "Nicolas Girard <girard.nicolas@gmail.com>"
 ]
 edition = "2018"
-description = "A simple solution for encoding common icon file formats."
+description = "A robust, flexible Rust framework for creating encoders and decoders for various icon formats."
 license-file = "LICENSE"
-repository = "https://github.com/GarkGarcia/icon_baker"
-homepage = "https://github.com/GarkGarcia/icon_baker"
+repository = "https://github.com/GarkGarcia/ikon"
+homepage = "https://github.com/GarkGarcia/ikon"
 readme = "README.md"
-keywords = ["icon", "ico", "icns"]
+keywords = ["icon", "encode", "decode"]
 
 [dependencies]
-tar = "0.4.26"
-ico = "0.1.0"
-icns = "0.3.0"
 image = "0.22.1"
 resvg = { version = "0.8.0", features = ["raqote-backend"] }

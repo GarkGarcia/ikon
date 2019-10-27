@@ -1,45 +1,42 @@
 # Ikon
 
-[![Crate](https://img.shields.io/crates/v/ikon.svg)](https://crates.io/crates/ikon)
+[![Crate](https://img.shields.io/crates/v/ikon)](https://crates.io/crates/ikon)
 [![API](https://docs.rs/ikon/badge.svg)](https://docs.rs/ikon)
 ![Minimum rustc version](https://img.shields.io/badge/rustc-1.37+-lightgray.svg)
 ![Downloads](https://img.shields.io/crates/d/ikon)
-[![License](https://img.shields.io/github/license/GarkGarcia/ikon)](https://github.com/GarkGarcia/ikon/blob/master/LICENSE)
+[![License](https://img.shields.io/crates/l/ikon)](https://github.com/GarkGarcia/ikon/blob/master/LICENSE)
 
 A robust, flexible framework for creating encoders and decoders for various _icon formats_.
 
 # Overview
 
-An _icon_ consists of a map between _keys_ and _images_. An _entry_ is a _key-value_ pair contained
-in an _icon_.
+**Ikon** is intended to be used as a framework for developers interested in creating encoders and decoders
+for _various icon formats_ such as `.ico` files and _favicon_ schemes. It **does not** come with any encoders
+or decoders out of the box.
 
-**Ikon** simply automates the process of re-scaling _images_, creating _entries_ and combining
-them into an _icon_.
+Instead, it simply automates much of the hard work of _encoding_, _decoding_ and _resampling_ different
+_[image formats](#Support)_, as well as provides powerfull abstractions, allowing developers to concentrate
+on the more relevant problems.
+
+_Icons_ are represented as maps between _keys_ and _images_. An _entry_ is a _key-value_ pair contained
+in an _icon_. The type of the _keys_ of an _icon_ is what determines how it can be indexed. 
 
 ## Keys
 
-Each _icon_ format is associated with a particular _key type_, which determines how
-_entries_ are labeled. Each _key_ can only be associated with a single _image_.
+Each _icon_ format is associated with a particular type of _key_. The type of the _keys_ of an _icon_ is
+what determines how it can be indexed. Each _key_ can only be associated with a single _image_.
 
-For example, _icon_ formats that only differentiate _entries_ by the dimensions of their associated
-_images_ are labeled by _positive integers_, such as the `.ico` and `.icns` file-formats.
-
-On the other hand, _icon_ formats that distinguish their _entries_ by 
-_[path](https://en.wikipedia.org/wiki/Path_%28computing%29)_, such as
-_[FreeDesktop icon themes](https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html)_
-, are labeled by _path_.
-
-Note that, since the dimensions of the _images_ contained in an _entry_ are dictated by their
-associated _entries_, every _key_ must be convertible to a _positive integers_. Therefore, all
-_key types_ are required to implement `AsSize`.
+Since the _keys_ of an icon also encode information about the dimensions of it's associated _image_,
+`Encoder::Key` and `Decoder::Key` are required to implement `AsSize`.
 
 ## Resampling
 
-Pictures are scaled using resampling filters, which are represented by _functions that take a source_ 
-_image and a size and return a re-scaled image_.
+Raster graphics are scaled using resampling filters, which are represented by _functions that take a_
+_source image and a size and return a re-scaled image_.
 
-This allows the users of this crate to provide their custom resampling filters. Common resampling 
-filters are provided in the [`resample`](https://docs.rs/ikon/ikon/resample/index.html) module.
+This allows the users of `ikon` and any of it's dependant crates to provide their custom resampling
+filters. Common resampling filters are provided in the
+[`resample`](https://docs.rs/ikon/ikon/resample/index.html) module.
 
 # Support
 

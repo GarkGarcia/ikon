@@ -1,9 +1,8 @@
-//! A collection of functions to assist in encoding images
-//! in commonly used _file formats_.
+//! Traits an functions to assist in encoding commonly used _icon formats_.
 
 use crate::{AsSize, Image, EncodingError};
 use image::{png::PNGEncoder, ColorType, DynamicImage, GenericImageView};
-use std::{io, path::Path};
+use std::{io, path::Path, fs::File};
 use resvg::usvg::{Tree, XmlIndent, XmlOptions};
 
 const XML_OPTS: XmlOptions = XmlOptions {
@@ -14,18 +13,70 @@ const XML_OPTS: XmlOptions = XmlOptions {
 
 const STD_CAPACITY: usize = 7;
 
-/// A generic representation of an icon encoder.
-pub trait Encoder
-where
-    Self: Sized,
-{
+/// The `Encode` trait represents a generic icon encoder, providing basic
+/// inicialization methods as well as functionality for adding _entries_.
+/// 
+/// # Example
+/// 
+/// In this example we'll create a very simple `Encode` implementor whose
+/// keys are _positive integers_. First of all, we'll need a `Key` type:
+/// 
+/// ```rust
+/// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+/// pub struct Key(pub u16);
+/// 
+/// impl AsSize for Key {
+///     fn as_size(&self) -> u32 {
+///         if self.0 == 0 {
+///             256
+///         } else {
+///             *self.0
+///         }
+///     }
+/// }
+/// ```
+/// 
+/// Note that `Key(0)` represents `Key(256)`. We can then implement our `Icon` type:
+/// 
+/// ```rust
+/// #[derive(Clone)]
+/// pub struct Icon {
+///     internal: HashMap<u16, DynamicImage>
+/// }
+/// 
+/// impl Encode for Icon {
+///     type Key = Key;
+/// 
+///     fn with_capacity(capacity: usize) -> Self {
+///         Self { internal: HashMap::with_capacity(capacity) }
+///     }
+/// 
+///     fn add_entry<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
+///         &mut self,
+///         filter: F,
+///         source: &Image,
+///         key: Self::Key,
+///     ) -> Result<(), EncodingError<Self::Key>> {
+///         let size = key.as_size();
+/// 
+///         if let Entry::Vacant(entry) = self.internal.entry(size) {
+///             entry.insert(source.rasterize(filter, size);
+///             Ok(())
+///         } else {
+///             Err(EncodingError::AlreadyIncluded(key))
+///         }
+///     }
+/// }
+/// ```
+pub trait Encode: Sized {
     type Key: AsSize + Send + Sync;
 
     /// Creates a new icon.
-    ///
+    /// 
     /// # Example
+    /// 
     /// ```rust
-    /// let icon = I::new();
+    /// let icon = Icon::new();
     /// ```
     fn new() -> Self {
         Self::with_capacity(STD_CAPACITY)
@@ -34,10 +85,11 @@ where
     /// Constructs a new, empty `IconEncoder` with the specified capacity.
     /// The `capacity` argument designates the number of entries
     /// that will be allocated.
-    ///
+    /// 
     /// # Example
+    /// 
     /// ```rust
-    /// let icon = I::with_capacity(5);
+    /// let icon = Icon::with_capacity();
     /// ```
     fn with_capacity(capacity: usize) -> Self;
 
@@ -60,6 +112,18 @@ where
     ///   the `filter` argument fails produces results of dimensions other than the
     ///   ones specified by `key`.
     /// * Otherwise returns `Ok(())`.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// fn main() -> io::Result<()> {
+    ///     let image = Image::open("image.svg")?;
+    ///     let icon = Icon::new();
+    /// 
+    ///     icon.add_entry(resample::linear, image, Key(32))?;
+    ///     Ok(())
+    /// }
+    /// ```
     fn add_entry<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,
@@ -83,6 +147,18 @@ where
     ///   the `filter` argument fails or produces results of dimensions other than the
     ///   ones specified by the items of `keys`.
     /// * Otherwise returns `Ok(())`.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// fn main() -> io::Result<()> {
+    ///     let image = Image::open("image.svg")?;
+    ///     let icon = Icon::new();
+    /// 
+    ///     icon.add_entries(resample::linear, image, vec![Key(32), Key(64), Key(128)])?;
+    ///     Ok(())
+    /// }
+    /// ```
     fn add_entries<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>, I: IntoIterator<Item = Self::Key>>(
         &mut self,
         mut filter: F,
@@ -97,16 +173,18 @@ where
     }
 }
 
-pub trait Write: Encoder {
+/// The `Write` trait provides functionality for writing the
+/// contents of an `Encode` into a `io::Write` implementor.
+/// 
+/// Usefull for _icon formats_ such as `.ico` and `.icns`
+/// files.
+pub trait Write: Encode {
     /// Writes the contents of the icon to `w`.
     ///
     /// # Example
     ///
     /// ```rust
-    /// use ikon::encode::{Encoder, Write};
-    /// use std::{io, fs::File};
-    /// 
-    /// fn example<Icon: Write>() -> io::Result<()> {
+    /// fn main() -> io::Result<()> {
     ///     let icon = Icon::new();
     ///
     ///     /* Process the icon */
@@ -118,13 +196,17 @@ pub trait Write: Encoder {
     fn write<W: io::Write>(&mut self, w: &mut W) -> io::Result<()>;
 }
 
-pub trait Save: Encoder {
+/// The `Save` trait provides functionality for saving the
+/// contents of an `Encode` to the local file system.
+/// 
+/// Usefull for _icon formats_ such as _favicon_.
+pub trait Save: Encode {
     /// Writes the contents of the icon to a file on disk.
     ///
     /// # Example
     ///
     /// ```rust
-    /// use ikon::encode::{Encoder, Save};
+    /// use ikon::encode::{Encode, Save};
     ///  
     /// fn example<Icon: Save>() -> io::Result<()> {
     ///     let icon = Icon::new();
@@ -135,6 +217,14 @@ pub trait Save: Encoder {
     /// }
     /// ```
     fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()>;
+}
+
+impl<T: Write> Save for T {
+    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()> {
+        let mut file = File::create(path)?;
+
+        self.write(&mut file)
+    }
 }
 
 /// Converts _raster graphics_ to _PNG_-encoded buffers.

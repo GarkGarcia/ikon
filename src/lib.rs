@@ -103,10 +103,10 @@ use std::{
     io::{self, Read, BufReader},
     path::Path,
 };
-pub use crate::encode::{Encoder, Write, Save};
 
 pub mod resample;
 pub mod encode;
+pub mod decode;
 mod error;
 #[cfg(test)]
 mod test;

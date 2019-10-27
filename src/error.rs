@@ -10,7 +10,7 @@ const MISMATCHED_DIM_ERR: &str =
     "a resampling filter returned an image of dimensions other than the ones specified by it's arguments";
 
 /// The error type for operations of the `Icon` trait.
-pub enum IconError<K: AsSize + Send + Sync> {
+pub enum EncodingError<K: AsSize + Send + Sync> {
     /// The `Icon` instance already includes an entry associated with this key.
     AlreadyIncluded(K),
     /// A resampling error.
@@ -27,20 +27,20 @@ pub enum ResampleError {
     MismatchedDimensions(u32, (u32, u32)),
 }
 
-impl<K: AsSize + Send + Sync> IconError<K> {
-    /// Converts `self` to a `IconError<T>` using `f`.
+impl<K: AsSize + Send + Sync> EncodingError<K> {
+    /// Converts `self` to a `EncodingError<T>` using `f`.
     pub fn map<T: AsSize + Send + Sync, F: FnOnce(K) -> T>(
         self,
         f: F
-    ) -> IconError<T> {
+    ) -> EncodingError<T> {
         match self {
-            Self::AlreadyIncluded(e) => IconError::AlreadyIncluded(f(e)),
-            Self::Resample(err) => IconError::Resample(err),
+            Self::AlreadyIncluded(e) => EncodingError::AlreadyIncluded(f(e)),
+            Self::Resample(err) => EncodingError::Resample(err),
         }
     }
 }
 
-impl<K: AsSize + Send + Sync> Display for IconError<K> {
+impl<K: AsSize + Send + Sync> Display for EncodingError<K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::AlreadyIncluded(_) => write!(
@@ -52,7 +52,7 @@ impl<K: AsSize + Send + Sync> Display for IconError<K> {
     }
 }
 
-impl<K: AsSize + Send + Sync + Debug> Debug for IconError<K> {
+impl<K: AsSize + Send + Sync + Debug> Debug for EncodingError<K> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::AlreadyIncluded(e) => write!(f, "Error::AlreadyIncluded({:?})", e),
@@ -61,7 +61,7 @@ impl<K: AsSize + Send + Sync + Debug> Debug for IconError<K> {
     }
 }
 
-impl<K: AsSize + Send + Sync + Debug> Error for IconError<K> {
+impl<K: AsSize + Send + Sync + Debug> Error for EncodingError<K> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         if let Self::Resample(ref err) = self {
             err.source()
@@ -71,19 +71,19 @@ impl<K: AsSize + Send + Sync + Debug> Error for IconError<K> {
     }
 }
 
-impl<K: AsSize + Send + Sync> From<ResampleError> for IconError<K> {
+impl<K: AsSize + Send + Sync> From<ResampleError> for EncodingError<K> {
     fn from(err: ResampleError) -> Self {
         Self::Resample(err)
     }
 }
 
-impl<K: AsSize + Send + Sync> From<io::Error> for IconError<K> {
+impl<K: AsSize + Send + Sync> From<io::Error> for EncodingError<K> {
     fn from(err: io::Error) -> Self {
         Self::from(ResampleError::from(err))
     }
 }
 
-impl<K: AsSize + Send + Sync> Into<io::Error> for IconError<K> {
+impl<K: AsSize + Send + Sync> Into<io::Error> for EncodingError<K> {
     fn into(self) -> io::Error {
         if let Self::Resample(err) = self {
             err.into()

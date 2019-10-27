@@ -1,22 +1,19 @@
-# IconBaker
+# Ikon
 
-[![Crate](https://img.shields.io/crates/v/icon_baker.svg)](https://crates.io/crates/icon_baker)
-[![API](https://docs.rs/icon_baker/badge.svg)](https://docs.rs/icon_baker)
+[![Crate](https://img.shields.io/crates/v/ikon.svg)](https://crates.io/crates/ikon)
+[![API](https://docs.rs/ikon/badge.svg)](https://docs.rs/ikon)
 ![Minimum rustc version](https://img.shields.io/badge/rustc-1.37+-lightgray.svg)
-![Downloads](https://img.shields.io/crates/d/icon_baker)
-[![License](https://img.shields.io/github/license/GarkGarcia/icon_baker)](https://github.com/GarkGarcia/icon_baker/blob/master/LICENSE)
+![Downloads](https://img.shields.io/crates/d/ikon)
+[![License](https://img.shields.io/github/license/GarkGarcia/ikon)](https://github.com/GarkGarcia/ikon/blob/master/LICENSE)
 
-A simple solution for encoding common icon file-formats, such as `.ico`, `.icns` and _favicon_. 
-
-This crate is mostly a wrapper for other libraries, unifying existing APIs into a single, cohesive
-interface. It serves as **[IconPie's](https://github.com/GarkGarcia/icon-pie)** internal library.
+A robust, flexible framework for creating encoders and decoders for various _icon formats_.
 
 # Overview
 
 An _icon_ consists of a map between _keys_ and _images_. An _entry_ is a _key-value_ pair contained
 in an _icon_.
 
-**IconBaker** simply automates the process of re-scaling _images_, creating _entries_ and combining
+**Ikon** simply automates the process of re-scaling _images_, creating _entries_ and combining
 them into an _icon_.
 
 ## Keys
@@ -43,69 +40,15 @@ Pictures are scaled using resampling filters, which are represented by _function
 _image and a size and return a re-scaled image_.
 
 This allows the users of this crate to provide their custom resampling filters. Common resampling 
-filters are provided in the 
-[`resample`](https://docs.rs/icon_baker/2.2.0/icon_baker/resample/index.html) module.
-
-# Examples
-
-## General Usage
-
-The `Icon::add_entry` can be used to automatically resample
-_source images_ and converts them to _entries_ in an icon.
-
-```rust
-use icon_baker::{ico::{Ico, Key}, Image, Icon, IconError};
-
-fn example() -> Result<(), IconError> {
-    let icon = Ico::new();
-    let src = Image::open("image.svg")?;
-
-    icon.add_entry(resample::linear, &img, Key(32))
-}
-```
-
-## Writing to Disk
-
-Implementors of the `Icon` trait can be written to any object
-that implements `io::Write` with the `Icon::write` method.
-
-```rust
-use icon_baker::favicon::Favicon;
-use std::{io, fs::File};
- 
-fn example() -> io::Result<()> {
-    let icon = Favicon::new();
-
-    // Process the icon ...
-
-    let file = File::create("out.icns")?;
-    icon.write(file)
-}
-```
-
-Alternatively, icons can be directly written to a file on
-disk with `Icon::save` method.
-
-```rust
-use icon_baker::favicon::Favicon;
-use std::{io, fs::File};
- 
-fn example() -> io::Result<()> {
-    let icon = Favicon::new();
-
-    /* Process the icon */
-
-    icon.save("./output/")
-}
-```
+filters are provided in the [`resample`](https://docs.rs/ikon/2.2.0/ikon/resample/index.html) module.
 
 # Support
 
-**IconBaker** uses [`image`](https://crates.io/crates/image) for _raster graphics_ manipulations and 
+**Ikon** uses [`image`](https://crates.io/crates/image) for _raster graphics_ manipulations and 
 [`resvg`](https://crates.io/crates/resvg) with the [`raqote`](https://crates.io/crates/raqote) backend
 for `svg` rasterization.
 
-Note that some _file formats_ supported by `image` were explicitly left out of `icon_baker` because
+Note that some _file formats_ supported by `image` were explicitly left out of `ikon` because
 they were considered irrelevant to the library's domain.
 
 | Format | Supported?                                                             | 
@@ -119,12 +62,12 @@ they were considered irrelevant to the library's domain.
 
 # Build Requirements
 
-**IconBaker** relies on [`harfbuzz_rs`](https://crates.io/crates/harfbuzz_rs), wich means
+**Ikon** relies on [`harfbuzz_rs`](https://crates.io/crates/harfbuzz_rs), wich means
 [CMake](https://cmake.org/) is required to be installed for it build.
 
 # License
 
-Licensed under MIT license([LICENSE-MIT](https://github.com/GarkGarcia/icon_baker/blob/master/LICENSE) 
+Licensed under MIT license([LICENSE-MIT](https://github.com/GarkGarcia/ikon/blob/master/LICENSE) 
 or http://opensource.org/licenses/MIT).
 
 # Contribution

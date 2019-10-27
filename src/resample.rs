@@ -43,6 +43,7 @@ pub fn apply<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
     }
 }
 
+/// Rescales `source` to fit in _`size`x`size`_ image while only scaling it on an integer scale.
 fn nearest_upscale_integer(source: &DynamicImage, size: u32) -> io::Result<DynamicImage> {
     let (w ,  h) = source.dimensions();
 
@@ -72,6 +73,7 @@ fn overfit(source: &DynamicImage, size: u32) -> io::Result<DynamicImage> {
     Ok(output)
 }
 
+/// Rasterizes an _SVG_ tree to a `DynamicImage`.
 pub(crate) fn svg(source: &Tree, size: u32) -> Result<DynamicImage, ResampleError> {
     let rect = source.svg_node().view_box.rect;
     let (w, h) = (rect.width(), rect.height());

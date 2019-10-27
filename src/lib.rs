@@ -42,13 +42,13 @@
 //! 
 //! ## General Usage
 //! 
-//! The `Icon::add_entry` can be used to automatically resample
+//! The `IconEncoder::add_entry` can be used to automatically resample
 //! _source images_ and converts them to _entries_ in an icon.
 //! 
 //! ```rust
-//! use icon_baker::{ico::{Ico, Key}, Image, Icon, IconError};
+//! use icon_baker::{ico::{Ico, Key}, Image, IconEncoder, EncodingError};
 //! 
-//! fn example() -> Result<(), IconError> {
+//! fn example() -> Result<(), EncodingError> {
 //!     let icon = Ico::new();
 //!     let src = Image::open("image.svg")?;
 //! 
@@ -58,8 +58,8 @@
 //! 
 //! ## Writing to Disk
 //! 
-//! Implementors of the `Icon` trait can be written to any object
-//! that implements `io::Write` with the `Icon::write` method.
+//! Implementors of the `IconEncoder` trait can be written to any object
+//! that implements `io::Write` with the `IconEncoder::write` method.
 //! 
 //! ```rust
 //! use icon_baker::favicon::Favicon;
@@ -76,7 +76,7 @@
 //! ```
 //! 
 //! Alternatively, icons can be directly written to a file on
-//! disk with `Icon::save` method.
+//! disk with `IconEncoder::save` method.
 //! 
 //! ```rust
 //! use icon_baker::favicon::Favicon;
@@ -95,176 +95,22 @@ pub extern crate image;
 pub extern crate resvg;
 
 use crate::usvg::Tree;
-pub use crate::error::{IconError, ResampleError};
+pub use crate::error::{EncodingError, ResampleError};
 use image::{DynamicImage, GenericImageView, ImageError, ImageFormat};
 pub use resvg::{raqote, usvg};
 use std::{
     convert::From,
     fs::File,
-    io::{self, Write, Read, BufReader},
+    io::{self, Read, BufReader},
     path::Path,
 };
+pub use crate::encode::{Encoder, Write, Save};
 
 pub mod resample;
 pub mod encode;
 mod error;
 #[cfg(test)]
 mod test;
-
-const STD_CAPACITY: usize = 7;
-
-/// A generic representation of an icon encoder.
-pub trait Icon
-where
-    Self: Sized,
-{
-    type Key: AsSize + Send + Sync;
-
-    /// Creates a new icon.
-    ///
-    /// # Example
-    /// ```rust
-    /// let icon = Ico::new();
-    /// ```
-    fn new() -> Self {
-        Self::with_capacity(STD_CAPACITY)
-    }
-
-    /// Constructs a new, empty `Icon` with the specified capacity.
-    /// The `capacity` argument designates the number of entries
-    /// that will be allocated.
-    ///
-    /// # Example
-    /// ```rust
-    /// let icon = Ico::with_capacity(5);
-    /// ```
-    fn with_capacity(capacity: usize) -> Self;
-
-    /// Returns the number of _entries_ contained in the icon.
-    fn len(&self) -> usize;
-
-    /// Adds an individual entry to the icon.
-    ///
-    /// # Arguments
-    ///
-    /// * `filter` The resampling filter that will be used to re-scale `source`.
-    /// * `source` A reference to the source image this entry will be based on.
-    /// * `key` Information on the target entry.
-    ///
-    /// # Return Value
-    ///
-    /// * Returns `Err(IconError::AlreadyIncluded(_))` if the icon already contains
-    ///   an entry associated with `key`.
-    /// * Returns `Err(IconError::Resample(_))` if the resampling filter provided in
-    ///   the `filter` argument fails produces results of dimensions other than the
-    ///   ones specified by `key`.
-    /// * Otherwise returns `Ok(())`.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use icon_baker::{Icon, Image, IconError};
-    ///  
-    /// fn example<I: Icon>() -> Result<(), IconError> {
-    ///     let icon = I::new();
-    ///     let src = Image::open("image.svg")?;
-    ///
-    ///     icon.add_entry(resample::linear, &img, I::Key(32))
-    /// }
-    /// ```
-    fn add_entry<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
-        &mut self,
-        filter: F,
-        source: &Image,
-        key: Self::Key,
-    ) -> Result<(), IconError<Self::Key>>;
-
-    /// Adds a series of entries to the icon.
-    ///
-    /// # Arguments
-    ///
-    /// * `filter` The resampling filter that will be used to re-scale `source`.
-    /// * `source` A reference to the source image this entry will be based on.
-    /// * `keys` A container for the information on the target entries.
-    ///
-    /// # Return Value
-    ///
-    /// * Returns `Err(IconError::AlreadyIncluded(_))` if the icon already contains an
-    ///   entry associated with any of the items of `keys`.
-    /// * Returns `Err(IconError::Resample(_))` if the resampling filter provided in
-    ///   the `filter` argument fails or produces results of dimensions other than the
-    ///   ones specified by the items of `keys`.
-    /// * Otherwise returns `Ok(())`.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use icon_baker::{Icon, Image, IconError};
-    ///  
-    /// fn example<I: Icon>() -> Result<(), IconError> {
-    ///     let icon = I::new();
-    ///     let src = Image::open("image.svg")?;
-    ///
-    ///     icon.add_entries(
-    ///         resample::linear,
-    ///         &src,
-    ///         vec![I::Key::Rgba32, I::Key::Rgba64, I::Key::Rgba128]
-    ///     )
-    /// }
-    /// ```
-    fn add_entries<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>, I: IntoIterator<Item = Self::Key>>(
-        &mut self,
-        mut filter: F,
-        source: &Image,
-        keys: I,
-    ) -> Result<(), IconError<Self::Key>> {
-        for key in keys {
-            self.add_entry(|src, size| filter(src, size), source, key)?;
-        }
-
-        Ok(())
-    }
-
-    /// Writes the contents of the icon to `w`.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use icon_baker::Icon;
-    /// use std::{io, fs::File};
-    ///  
-    /// fn example<I: Icon>() -> io::Result<()> {
-    ///     let icon = I::new();
-    ///
-    ///     /* Process the icon */
-    ///
-    ///     let file = File::create("out.icns")?;
-    ///     icon.write(file)
-    /// }
-    /// ```
-    fn write<W: Write>(&mut self, w: &mut W) -> io::Result<()>;
-
-    /// Writes the contents of the icon to a file on disk.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use icon_baker::Icon;
-    /// use std::{io, fs::File};
-    ///  
-    /// fn example<I: Icon>() -> io::Result<()> {
-    ///     let icon = I::new();
-    ///
-    ///     /* Process the icon */
-    ///
-    ///     icon.save("./output/")
-    /// }
-    /// ```
-    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()> {
-        let mut file = File::create(path.as_ref())?;
-        self.write(&mut file)
-    }
-}
 
 /// A trait for types that represent the dimesions of an icon.
 pub trait AsSize {
@@ -320,7 +166,16 @@ impl Image {
     /// For _raster graphics_ the moethod simply applies the resampling filter
     /// specified by the `filter` argument. For _vector graphics_, the method
     /// rasterizes the image to fit the dimensions specified `size` using
-    /// linear interpolation and antialiasing.
+    /// [_linear interpolation_](https://en.wikipedia.org/wiki/Linear_interpolation)
+    /// and [_anti-aliasing_](https://en.wikipedia.org/wiki/Anti-aliasing).
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// if let Ok(raster) = image.rasterize(resample::linear, 32) {
+    ///     // Process raster...
+    /// }
+    /// ```
     pub fn rasterize<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
         &self,
         filter: F,
@@ -332,7 +187,7 @@ impl Image {
         }
     }
 
-    /// Returns the width of the image in pixels.
+    /// Returns the width of the image in pixel units.
     pub fn width(&self) -> f64 {
         match self {
             Image::Raster(ras) => ras.width() as f64,
@@ -340,7 +195,7 @@ impl Image {
         }
     }
 
-    /// Returns the height of the image in pixels.
+    /// Returns the height of the image in pixel units.
     pub fn height(&self) -> f64 {
         match self {
             Image::Raster(ras) => ras.height() as f64,
@@ -348,7 +203,7 @@ impl Image {
         }
     }
 
-    /// Returns the dimensions of the image in pixels.
+    /// Returns the dimensions of the image in pixel units.
     pub fn dimensions(&self) -> (f64, f64) {
         (self.width(), self.height())
     }

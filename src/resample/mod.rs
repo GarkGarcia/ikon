@@ -1,9 +1,11 @@
 //! A collection of commonly used resampling filters.
 
-use crate::ResampleError;
 use std::io;
 use image::{imageops, DynamicImage, ImageBuffer, GenericImageView, FilterType, Bgra};
 use resvg::{usvg::{self, Tree}, raqote::DrawTarget , FitTo};
+pub use error::ResampleError;
+
+mod error;
 
 /// [Linear resampling filter](https://en.wikipedia.org/wiki/Linear_interpolation).
 pub fn linear(source: &DynamicImage, size: u32) -> io::Result<DynamicImage> {

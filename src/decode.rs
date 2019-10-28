@@ -4,13 +4,13 @@ use crate::{load_raster, load_vector, AsSize, Image};
 use std::{io::{self, Read, Cursor}, slice::Iter};
 use image::ImageFormat;
 
-/// The `Decoder` trait represents a generic icon decoder, providing methods
+/// The `Decode` trait represents a generic icon decoder, providing methods
 /// for generating icons from byte streams, as well as functionality querying
 /// and inspecting _entries_.
 /// 
 /// # Example
 /// 
-/// In this example we'll create a very simple `Decoder` implementor whose
+/// In this example we'll create a very simple `Decode` implementor whose
 /// keys are _positive integers_. First of all, we'll need a `Key` type:
 /// 
 /// ```rust
@@ -36,7 +36,7 @@ use image::ImageFormat;
 ///     internal: HashMap<Key, DynamicImage>
 /// }
 /// 
-/// impl Decoder for Icon {
+/// impl Decode for Icon {
 ///     type Key = Key;
 /// 
 ///     fn read<R: Read>(r: R) -> io::Result<Self> {
@@ -66,7 +66,7 @@ use image::ImageFormat;
 ///     }
 /// }
 /// ```
-pub trait Decoder: Sized {
+pub trait Decode: Sized {
     type Key: AsSize + Send + Sync;
 
     /// Parses and loads an icon into memmory.

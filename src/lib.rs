@@ -33,8 +33,7 @@
 pub extern crate image;
 pub extern crate resvg;
 
-use crate::usvg::Tree;
-pub use crate::error::ResampleError;
+use crate::{usvg::Tree, resample::ResampleError};
 use image::{DynamicImage, GenericImageView, ImageError, ImageFormat};
 pub use resvg::{raqote, usvg};
 use std::{
@@ -47,7 +46,6 @@ use std::{
 pub mod resample;
 pub mod encode;
 pub mod decode;
-mod error;
 #[cfg(test)]
 mod test;
 

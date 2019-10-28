@@ -4,7 +4,9 @@ use crate::{AsSize, Image};
 use image::{png::PNGEncoder, bmp::BMPEncoder, ColorType, DynamicImage, GenericImageView};
 use std::{io::{self, BufWriter}, path::Path, fs::File};
 use resvg::usvg::{Tree, XmlIndent, XmlOptions};
-pub use crate::error::EncodingError;
+pub use error::EncodingError;
+
+mod error;
 
 const XML_OPTS: XmlOptions = XmlOptions {
     indent: XmlIndent::None,
@@ -61,7 +63,7 @@ const STD_CAPACITY: usize = 7;
 ///         let size = key.as_size();
 /// 
 ///         if let Entry::Vacant(entry) = self.internal.entry(size) {
-///             entry.insert(source.rasterize(filter, size);
+///             entry.insert(source.rasterize(filter, size));
 ///             Ok(())
 ///         } else {
 ///             Err(EncodingError::AlreadyIncluded(key))
@@ -208,14 +210,14 @@ pub trait Write: Encode {
 /// 
 /// Usefull for _icon formats_ such as _favicon_.
 pub trait Save: Encode {
-    /// Writes the contents of the icon to a file on disk.
+    /// Writes the contents of the icon to disk.
     ///
     /// # Example
     ///
     /// ```rust
     /// use ikon::encode::{Encode, Save};
     ///  
-    /// fn example<Icon: Save>() -> io::Result<()> {
+    /// fn main() -> io::Result<()> {
     ///     let icon = Icon::new();
     ///
     ///     /* Process the icon */

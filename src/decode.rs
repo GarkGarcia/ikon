@@ -1,4 +1,4 @@
-//! Traits an functions to assist in dencoding commonly used _icon formats_.
+//! Traits, types and functions to assist in dencoding commonly used _icon formats_.
 
 use crate::{load_raster, load_vector, AsSize, Image};
 use std::{io::{self, Read, Cursor}, slice::Iter};

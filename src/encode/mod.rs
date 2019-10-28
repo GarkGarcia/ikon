@@ -1,4 +1,4 @@
-//! Traits an functions to assist in encoding commonly used _icon formats_.
+//! Traits, types and functions to assist in encoding commonly used _icon formats_.
 
 use crate::{AsSize, Image};
 use image::{png::PNGEncoder, bmp::BMPEncoder, ColorType, DynamicImage, GenericImageView};

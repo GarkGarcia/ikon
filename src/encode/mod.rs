@@ -129,7 +129,9 @@ pub trait Encode: Sized {
     ///     let image = Image::open("image.svg")?;
     ///     let icon = Icon::new();
     /// 
-    ///     icon.add_entry(resample::linear, image, Key(32))?;
+    ///     icon.add_entry(resample::linear, image, Key(32))?
+    ///         .add_entry(resample::nearest, image, Key(64))?;
+    /// 
     ///     Ok(())
     /// }
     /// ```
@@ -164,7 +166,12 @@ pub trait Encode: Sized {
     ///     let image = Image::open("image.svg")?;
     ///     let icon = Icon::new();
     /// 
-    ///     icon.add_entries(resample::linear, image, vec![Key(32), Key(64), Key(128)])?;
+    ///     icon.add_entries(
+    ///         resample::linear,
+    ///         image,
+    ///         vec![Key(32), Key(64), Key(128)]
+    ///     )?;
+    /// 
     ///     Ok(())
     /// }
     /// ```

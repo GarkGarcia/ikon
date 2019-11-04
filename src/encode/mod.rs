@@ -138,7 +138,7 @@ pub trait Encode: Sized {
         filter: F,
         source: &Image,
         key: Self::Key,
-    ) -> Result<(), EncodingError<Self::Key>>;
+    ) -> Result<&mut Self, EncodingError<Self::Key>>;
 
     /// Adds a series of entries to the icon.
     ///
@@ -173,12 +173,12 @@ pub trait Encode: Sized {
         mut filter: F,
         source: &Image,
         keys: I,
-    ) -> Result<(), EncodingError<Self::Key>> {
+    ) -> Result<&mut Self, EncodingError<Self::Key>> {
         for key in keys {
             self.add_entry(|src, size| filter(src, size), source, key)?;
         }
 
-        Ok(())
+        Ok(self)
     }
 }
 

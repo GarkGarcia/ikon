@@ -209,7 +209,7 @@ pub trait Write: Encode {
     ///     icon.write(file)
     /// }
     /// ```
-    fn write<W: io::Write>(&mut self, w: &mut W) -> io::Result<()>;
+    fn write<W: io::Write>(&mut self, w: &mut W) -> io::Result<&mut Self>;
 }
 
 /// The `Save` trait provides functionality for saving the
@@ -232,12 +232,12 @@ pub trait Save: Encode {
     ///     icon.save("./output/")
     /// }
     /// ```
-    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()>;
+    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<&mut Self>;
 }
 
 impl<T: Write> Save for T {
     #[inline]
-    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<()> {
+    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<&mut Self> {
         let mut file = BufWriter::new(File::create(path)?);
         self.write(&mut file)
     }

@@ -1,7 +1,7 @@
 //! Traits, types and functions to assist in dencoding commonly used _icon formats_.
 
 use crate::{load_raster, load_vector, AsSize, Image};
-use std::{io::{self, Read, Cursor}, slice::Iter};
+use std::{io::{self, Read, Seek}, slice::Iter};
 use image::ImageFormat;
 
 /// The `Decode` trait represents a generic icon decoder, providing methods
@@ -121,18 +121,18 @@ pub trait Decode: Sized {
 
 #[inline]
 /// Converts _PNG_-encoded buffers to _raster graphics_.
-pub fn png(buf: &[u8]) -> io::Result<Image> {
-    load_raster(Cursor::new(buf), ImageFormat::PNG)
+pub fn png<R: Read + Seek>(read: R) -> io::Result<Image> {
+    load_raster(read, ImageFormat::PNG)
 }
 
 #[inline]
 /// Converts _BMP_-encoded buffers to _raster graphics_.
-pub fn bmp(buf: &[u8]) -> io::Result<Image> {
-    load_raster(Cursor::new(buf), ImageFormat::BMP)
+pub fn bmp<R: Read + Seek>(read: R) -> io::Result<Image> {
+    load_raster(read, ImageFormat::BMP)
 }
 
 #[inline]
 /// Converts _UTF8_-encoded _SVG_ strings to _vector graphics_.
-pub fn svg(buf: &[u8]) -> io::Result<Image> {
-    load_vector(Cursor::new(buf))
+pub fn svg<R: Read + Seek>(read: R) -> io::Result<Image> {
+    load_vector(read)
 }

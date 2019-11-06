@@ -107,6 +107,7 @@ impl Image {
         // Read the file's signature
         let mut signature: [u8;8] = [0;8];
         read.read_exact(&mut signature)?;
+        read.seek(SeekFrom::Start(0))?;
 
         match signature {
             [0x89, 0x50, 0x4e, 0x47, 0xd, 0xa, 0x1a, 0xa] => load_raster(read, ImageFormat::PNG),
@@ -183,10 +184,7 @@ unsafe impl Send for Image {}
 unsafe impl Sync for Image {}
 
 /// Loads raster graphics to an `Image`.
-fn load_raster<R: Read + Seek>(mut read: R, format: ImageFormat) -> io::Result<Image> {
-    // Return to the start of the stream.
-    read.seek(SeekFrom::Start(0))?;
-
+fn load_raster<R: Read + Seek>(read: R, format: ImageFormat) -> io::Result<Image> {
     match image::load(BufReader::new(read), format) {
         Ok(img) => Ok(Image::from(img)),
         Err(ImageError::InsufficientMemory) => Err(io::Error::from(io::ErrorKind::Other)),
@@ -199,7 +197,7 @@ fn load_raster<R: Read + Seek>(mut read: R, format: ImageFormat) -> io::Result<I
 fn load_vector<R: Read + Seek>(mut read: R) -> io::Result<Image> {
     // Combute the length of the file and return to the start of
     // the stream.
-    let len = read.seek(SeekFrom::End(0))? + 8;
+    let len = read.seek(SeekFrom::End(0))?;
     read.seek(SeekFrom::Start(0))?;
 
     let mut contents = Vec::with_capacity(len as usize);

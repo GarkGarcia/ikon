@@ -183,7 +183,10 @@ unsafe impl Send for Image {}
 unsafe impl Sync for Image {}
 
 /// Loads raster graphics to an `Image`.
-fn load_raster<R: Read + Seek>(read: R, format: ImageFormat) -> io::Result<Image> {
+fn load_raster<R: Read + Seek>(mut read: R, format: ImageFormat) -> io::Result<Image> {
+    // Return to the start of the stream.
+    read.seek(SeekFrom::Start(0))?;
+
     match image::load(BufReader::new(read), format) {
         Ok(img) => Ok(Image::from(img)),
         Err(ImageError::InsufficientMemory) => Err(io::Error::from(io::ErrorKind::Other)),
@@ -194,14 +197,10 @@ fn load_raster<R: Read + Seek>(read: R, format: ImageFormat) -> io::Result<Image
 
 /// Loads vector graphics to an `Image`.
 fn load_vector<R: Read + Seek>(mut read: R) -> io::Result<Image> {
-    let old_pos = read.seek(SeekFrom::Current(0))?;
-    let len = read.seek(SeekFrom::End(0))?;
-
-    // Avoid seeking a third time when we were already at the end of the
-    // stream. The branch is usually way cheaper than a seek operation.
-    if old_pos != len {
-        read.seek(SeekFrom::Start(old_pos))?;
-    }
+    // Combute the length of the file and return to the start of
+    // the stream.
+    let len = read.seek(SeekFrom::End(0))? + 8;
+    read.seek(SeekFrom::Start(0))?;
 
     let mut contents = Vec::with_capacity(len as usize);
     read.read_to_end(&mut contents)?;

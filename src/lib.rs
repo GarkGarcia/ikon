@@ -114,7 +114,7 @@ impl Image {
             [0x47, 0x49, 0x46, 0x38, 0x37, 0x61, _, _]
             | [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, _, _] => load_raster(read, ImageFormat::GIF),
             [0x42, 0x4d, _, _, _, _, _, _] => load_raster(read, ImageFormat::BMP),
-            [0x57, 0x45, 0x42, 0x50, _, _, _, _] => load_raster(read, ImageFormat::WEBP),
+            [0x52, 0x49, 0x46, 0x46, _, _, _, _] => load_raster(read, ImageFormat::WEBP),
             _ => load_vector(read)
         }
     }

@@ -22,9 +22,9 @@ fn test_load() -> io::Result<()> {
         panic!("FAILED AT BMP {:?}", err);
     }
 
-    // if let Err(err) = Image::load(File::open("tests/test.webp")?) {
-    //     panic!("FAILED AT WEBP {:?}", err);
-    // }
+    if let Err(err) = Image::load(File::open("tests/test.webp")?) {
+        panic!("FAILED AT WEBP {:?}", err);
+    }
 
     if let Err(err) = Image::load(File::open("tests/test.svg")?) {
         panic!("FAILED AT SVG {:?}", err);

@@ -1,7 +1,7 @@
 //! Traits, types and functions to assist in dencoding commonly used _icon formats_.
 
 use crate::{load_raster, load_vector, AsSize, Image};
-use std::{io::{self, Read, Seek}, slice::Iter};
+use std::{io::{self, Read, Seek}};
 use image::ImageFormat;
 
 /// The `Decode` trait represents a generic icon decoder, providing methods
@@ -68,9 +68,10 @@ use image::ImageFormat;
 /// ```
 pub trait Decode: Sized {
     type Key: AsSize + Send + Sync;
+    type Entries: Iterator<Item = (Self::Key, Image)>;
 
     /// Parses and loads an icon into memmory.
-    fn read<R: Read>(r: R) -> io::Result<Self>;
+    fn read<R: Read + Seek>(r: R) -> io::Result<Self>;
 
     /// Returns the number of _entries_ contained in the icon.
     /// 
@@ -93,7 +94,7 @@ pub trait Decode: Sized {
     ///     // Do that . . .
     /// }
     /// ```
-    fn contains_key(key: &Self::Key) -> bool;
+    fn contains_key(&self, key: &Self::Key) -> bool;
     
     /// Returns `Some(entry)` if the icon includes an entry associated with `key`.
     /// Otherwise returns `None`.
@@ -116,7 +117,7 @@ pub trait Decode: Sized {
     ///     // Do something . . .
     /// }
     /// ```
-    fn entries(&self) -> Iter<(Self::Key, Image)>;
+    fn entries(&self) -> Self::Entries;
 }
 
 #[inline]

@@ -117,7 +117,7 @@ pub trait Decode<'a>: Sized {
     ///     // Do something . . .
     /// }
     /// ```
-    fn entries(&self) -> Self::Entries;
+    fn entries(&'a self) -> Self::Entries;
 }
 
 #[inline]

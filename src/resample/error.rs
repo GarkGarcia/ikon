@@ -15,7 +15,7 @@ pub enum ResampleError {
     Io(io::Error),
     /// A resampling filter produced results of dimensions
     /// other the ones specified by it's arguments.
-    MismatchedDimensions(u32, (u32, u32)),
+    MismatchedDimensions((u32, u32), (u32, u32)),
 }
 
 impl From<io::Error> for ResampleError {
@@ -28,10 +28,10 @@ impl Display for ResampleError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Io(err) => write!(f, "{}", err),
-            Self::MismatchedDimensions(s, (w, h)) => write!(
+            Self::MismatchedDimensions((ew, eh), (gw, gh)) => write!(
                 f,
-                "{0}: expected {1}x{1}, got {2}x{3}",
-                MISMATCHED_DIM_ERR, s, w, h
+                "{}: expected {}x{}, got {}x{}",
+                MISMATCHED_DIM_ERR, ew, eh, gw, gh
             ),
         }
     }

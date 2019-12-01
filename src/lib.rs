@@ -53,7 +53,7 @@ mod test;
 
 /// A trait for types that represent the dimesions of an icon.
 pub trait AsSize {
-    fn as_size(&self) -> u32;
+    fn as_size(&self) -> (u32, u32);
 }
 
 #[derive(Clone)]
@@ -135,10 +135,10 @@ impl Image {
     ///     // Process raster...
     /// }
     /// ```
-    pub fn rasterize<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
+    pub fn rasterize<F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>>(
         &self,
         filter: F,
-        size: u32,
+        size: (u32, u32),
     ) -> Result<DynamicImage, ResampleError> {
         match self {
             Self::Raster(ras) => resample::apply(filter, ras, size),
@@ -182,6 +182,24 @@ impl From<DynamicImage> for Image {
 
 unsafe impl Send for Image {}
 unsafe impl Sync for Image {}
+
+impl AsSize for (u32, u32) {
+    fn as_size(&self) -> (u32, u32) {
+        *self
+    }
+}
+
+impl AsSize for (u16, u16) {
+    fn as_size(&self) -> (u32, u32) {
+        (self.0 as u32, self.1 as u32)
+    }
+}
+
+impl AsSize for (u8, u8) {
+    fn as_size(&self) -> (u32, u32) {
+        (self.0 as u32, self.1 as u32)
+    }
+}
 
 /// Loads raster graphics to an `Image`.
 fn load_raster<R: Read + Seek>(read: R, format: ImageFormat) -> io::Result<Image> {

@@ -31,9 +31,9 @@ const STD_CAPACITY: usize = 7;
 /// impl AsSize for Key {
 ///     fn as_size(&self) -> u32 {
 ///         if self.0 == 0 {
-///             256
+///             (256, 256)
 ///         } else {
-///             *self.0
+///             (*self.0, *self.0)
 ///         }
 ///     }
 /// }
@@ -54,7 +54,7 @@ const STD_CAPACITY: usize = 7;
 ///         Self { internal: HashMap::with_capacity(capacity) }
 ///     }
 /// 
-///     fn add_entry<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
+///     fn add_entry<F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>>(
 ///         &mut self,
 ///         filter: F,
 ///         source: &Image,
@@ -135,7 +135,7 @@ pub trait Encode: Sized {
     ///     Ok(())
     /// }
     /// ```
-    fn add_entry<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>>(
+    fn add_entry<F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,
         source: &Image,
@@ -175,7 +175,10 @@ pub trait Encode: Sized {
     ///     Ok(())
     /// }
     /// ```
-    fn add_entries<F: FnMut(&DynamicImage, u32) -> io::Result<DynamicImage>, I: IntoIterator<Item = Self::Key>>(
+    fn add_entries<
+        F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>,
+        I: IntoIterator<Item = Self::Key>
+    >(
         &mut self,
         mut filter: F,
         source: &Image,

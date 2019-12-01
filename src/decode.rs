@@ -66,9 +66,9 @@ use image::ImageFormat;
 ///     }
 /// }
 /// ```
-pub trait Decode: Sized {
-    type Key: AsSize + Send + Sync;
-    type Entries: Iterator<Item = (Self::Key, Image)>;
+pub trait Decode<'a>: Sized {
+    type Key: 'a + AsSize + Send + Sync;
+    type Entries: Iterator<Item = (&'a Self::Key, &'a Image)>;
 
     /// Parses and loads an icon into memmory.
     fn read<R: Read + Seek>(r: R) -> io::Result<Self>;

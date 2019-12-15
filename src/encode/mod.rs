@@ -1,7 +1,7 @@
 //! Traits, types and functions to assist in encoding commonly used _icon formats_.
 
 use crate::{AsSize, Image};
-use image::{png::PNGEncoder, bmp::BMPEncoder, ColorType, DynamicImage, GenericImageView};
+use image::{DynamicImage, ImageOutputFormat, ImageError};
 use std::{io::{self, BufWriter}, path::Path, fs::File};
 use resvg::usvg::{Tree, XmlIndent, XmlOptions};
 pub use error::EncodingError;
@@ -246,30 +246,32 @@ impl<T: Write> Save for T {
     }
 }
 
+#[inline]
 /// Converts _raster graphics_ to _PNG_-encoded buffers.
-pub fn png(image: &DynamicImage) -> io::Result<Vec<u8>> {
-    let data = image.to_rgba().into_raw();
-    let mut output = Vec::with_capacity(data.len());
-
-    let encoder = PNGEncoder::new(&mut output);
-    encoder.encode(&data, image.width(), image.height(), ColorType::RGBA(8))?;
-
-    Ok(output)
+pub fn png<W: io::Write>(image: &DynamicImage, w: &mut W) -> io::Result<()> {
+    image
+        .write_to(w, ImageOutputFormat::PNG)
+        .map_err(image_err_to_io)
 }
 
+#[inline]
 /// Converts _raster graphics_ to _BMP_-encoded buffers.
-pub fn bmp(image: &DynamicImage) -> io::Result<Vec<u8>> {
-    let data = image.to_rgba().into_raw();
-    let mut output = Vec::with_capacity(data.len());
-
-    let mut encoder = BMPEncoder::new(&mut output);
-    encoder.encode(&data, image.width(), image.height(), ColorType::RGBA(8))?;
-
-    Ok(output)
+pub fn bmp<W: io::Write>(image: &DynamicImage, w: &mut W) -> io::Result<()> {
+    image
+        .write_to(w, ImageOutputFormat::BMP)
+        .map_err(image_err_to_io)
 }
 
 #[inline]
 /// Converts _vector graphics_ to _UTF8_-encoded _SVG_ strings.
-pub fn svg(image: &Tree) -> Vec<u8> {
-    image.to_string(XML_OPTS).into_bytes()
+pub fn svg<W: io::Write>(image: &Tree, w: &mut W) -> io::Result<()> {
+    w.write_all(image.to_string(XML_OPTS).as_ref())
+}
+
+/// Convert an `ImageError` to an `io::Error`
+fn image_err_to_io(err: ImageError) -> io::Error {
+    match err {
+        ImageError::IoError(err) => err,
+        _ => unreachable!()
+    }
 }

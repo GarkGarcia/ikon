@@ -1,6 +1,6 @@
 [package]
 name = "ikon"
-version = "0.1.0-beta.7"
+version = "0.1.0-beta.8"
 authors = [
     "Gark Garcia <gark.garcia@protonmail.com>",
     "Nicolas Girard <girard.nicolas@gmail.com>"
@@ -14,5 +14,5 @@ readme = "README.md"
 keywords = ["icon", "encode", "decode"]
 
 [dependencies]
-image = "0.22.1"
+image = "0.22.3"
 resvg = { version = "0.8.0", features = ["raqote-backend"] }

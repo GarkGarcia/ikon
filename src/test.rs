@@ -1,8 +1,5 @@
 use crate::{encode, resample, Image};
-use std::{
-    fs::File,
-    io::{self, Write},
-};
+use std::{io, fs::File};
 
 #[test]
 fn load() -> io::Result<()> {
@@ -43,17 +40,23 @@ fn rasterize() -> io::Result<()> {
     let source_png = Image::open("tests/test.png").expect("File not found");
     let source_svg = Image::open("tests/test.svg").expect("File not found");
 
-    let buf = encode::png(&source_png.rasterize(resample::nearest, (32, 32)).expect("Failed"))?;
-    file_near.write_all(buf.as_ref())?;
+    encode::png(
+        &source_png.rasterize(resample::nearest, (32, 32)).expect("Failed"),
+        &mut file_near
+    )?;
 
-    let buf = encode::png(&source_png.rasterize(resample::linear, (32, 32)).expect("Failed"))?;
-    file_linear.write_all(buf.as_ref())?;
+    encode::png(
+        &source_png.rasterize(resample::linear, (32, 32)).expect("Failed"),
+        &mut file_linear
+    )?;
 
-    let buf = encode::png(&source_png.rasterize(resample::cubic, (32, 32)).expect("Failed"))?;
-    file_cubic.write_all(buf.as_ref())?;
+    encode::png(
+        &source_png.rasterize(resample::cubic, (32, 32)).expect("Failed"),
+        &mut file_cubic
+    )?;
 
-    let buf = encode::png(&source_svg.rasterize(resample::nearest, (32, 32)).expect("Failed"))?;
-    file_svg.write_all(buf.as_ref())?;
-
-    Ok(())
+    encode::png(
+        &source_svg.rasterize(resample::nearest, (32, 32)).expect("Failed"),
+        &mut file_svg
+    )
 }

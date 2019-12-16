@@ -2,7 +2,8 @@
 
 use crate::{load_raster, load_vector, AsSize, Image};
 use std::{io::{self, Read, Seek}};
-use image::ImageFormat;
+use image::{ImageFormat, DynamicImage};
+use resvg::usvg::Tree;
 
 /// The `Decode` trait represents a generic icon decoder, providing methods
 /// for generating icons from byte streams, as well as functionality querying
@@ -122,18 +123,18 @@ pub trait Decode<'a>: Sized {
 
 #[inline]
 /// Converts _PNG_-encoded buffers to _raster graphics_.
-pub fn png<R: Read + Seek>(read: R) -> io::Result<Image> {
+pub fn png<R: Read + Seek>(read: &mut R) -> io::Result<DynamicImage> {
     load_raster(read, ImageFormat::PNG)
 }
 
 #[inline]
 /// Converts _BMP_-encoded buffers to _raster graphics_.
-pub fn bmp<R: Read + Seek>(read: R) -> io::Result<Image> {
+pub fn bmp<R: Read + Seek>(read: &mut R) -> io::Result<DynamicImage> {
     load_raster(read, ImageFormat::BMP)
 }
 
 #[inline]
 /// Converts _UTF8_-encoded _SVG_ strings to _vector graphics_.
-pub fn svg<R: Read + Seek>(read: R) -> io::Result<Image> {
+pub fn svg<R: Read + Seek>(read: &mut R) -> io::Result<Tree> {
     load_vector(read)
 }

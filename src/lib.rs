@@ -110,13 +110,13 @@ impl Image {
         read.seek(SeekFrom::Start(0))?;
 
         match signature {
-            [0x89, 0x50, 0x4e, 0x47, 0xd, 0xa, 0x1a, 0xa] => load_raster(read, ImageFormat::PNG),
-            [0xff, 0xd8, 0xff, _, _, _, _, _] => load_raster(read, ImageFormat::JPEG),
+            [0x89, 0x50, 0x4e, 0x47, 0xd, 0xa, 0x1a, 0xa] => load_raster(read, ImageFormat::PNG).map(Image::from),
+            [0xff, 0xd8, 0xff, _, _, _, _, _] => load_raster(read, ImageFormat::JPEG).map(Image::from),
             [0x47, 0x49, 0x46, 0x38, 0x37, 0x61, _, _]
-            | [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, _, _] => load_raster(read, ImageFormat::GIF),
-            [0x42, 0x4d, _, _, _, _, _, _] => load_raster(read, ImageFormat::BMP),
-            [0x52, 0x49, 0x46, 0x46, _, _, _, _] => load_raster(read, ImageFormat::WEBP),
-            _ => load_vector(read)
+            | [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, _, _] => load_raster(read, ImageFormat::GIF).map(Image::from),
+            [0x42, 0x4d, _, _, _, _, _, _] => load_raster(read, ImageFormat::BMP).map(Image::from),
+            [0x52, 0x49, 0x46, 0x46, _, _, _, _] => load_raster(read, ImageFormat::WEBP).map(Image::from),
+            _ => load_vector(read).map(Image::from)
         }
     }
 
@@ -202,9 +202,9 @@ impl AsSize for (u8, u8) {
 }
 
 /// Loads raster graphics to an `Image`.
-fn load_raster<R: Read + Seek>(read: R, format: ImageFormat) -> io::Result<Image> {
+fn load_raster<R: Read + Seek>(read: R, format: ImageFormat) -> io::Result<DynamicImage> {
     match image::load(BufReader::new(read), format) {
-        Ok(img) => Ok(Image::from(img)),
+        Ok(img) => Ok(img),
         Err(ImageError::InsufficientMemory) => Err(io::Error::from(io::ErrorKind::Other)),
         Err(ImageError::IoError(err)) => Err(err),
         _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
@@ -212,7 +212,7 @@ fn load_raster<R: Read + Seek>(read: R, format: ImageFormat) -> io::Result<Image
 }
 
 /// Loads vector graphics to an `Image`.
-fn load_vector<R: Read + Seek>(mut read: R) -> io::Result<Image> {
+fn load_vector<R: Read + Seek>(mut read: R) -> io::Result<Tree> {
     // Combute the length of the file and return to the start of
     // the stream.
     let len = read.seek(SeekFrom::End(0))?;
@@ -222,7 +222,7 @@ fn load_vector<R: Read + Seek>(mut read: R) -> io::Result<Image> {
     read.read_to_end(&mut contents)?;
 
     match Tree::from_data(contents.as_ref(), &usvg::Options::default()) {
-        Ok(img) => Ok(Image::from(img)),
+        Ok(img) => Ok(img),
         Err(usvg::Error::InvalidFileSuffix) => {
             Err(io::Error::from(io::ErrorKind::InvalidInput))
         }

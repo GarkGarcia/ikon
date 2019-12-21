@@ -1,9 +1,12 @@
 //! Traits, types and functions to assist in dencoding commonly used _icon formats_.
 
 use crate::{load_raster, load_vector, AsSize, Image};
+pub use error::DecodingError;
 use std::{io::{self, Read, Seek}};
 use image::{ImageFormat, DynamicImage};
 use resvg::usvg::Tree;
+
+mod error;
 
 /// The `Decode` trait represents a generic icon decoder, providing methods
 /// for generating icons from byte streams, as well as functionality querying
@@ -72,7 +75,7 @@ pub trait Decode<'a>: Sized {
     type Entries: Iterator<Item = (&'a Self::Key, &'a Image)>;
 
     /// Parses and loads an icon into memmory.
-    fn read<R: Read + Seek>(r: R) -> io::Result<Self>;
+    fn read<R: Read + Seek>(r: R) -> Result<DecodingError, Self>;
 
     /// Returns the number of _entries_ contained in the icon.
     /// 

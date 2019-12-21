@@ -75,7 +75,7 @@ pub trait Decode<'a>: Sized {
     type Entries: Iterator<Item = (&'a Self::Key, &'a Image)>;
 
     /// Parses and loads an icon into memmory.
-    fn read<R: Read + Seek>(r: R) -> Result<DecodingError, Self>;
+    fn read<R: Read + Seek>(r: R) -> Result<Self, DecodingError>;
 
     /// Returns the number of _entries_ contained in the icon.
     /// 

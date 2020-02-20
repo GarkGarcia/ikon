@@ -14,8 +14,6 @@ const XML_OPTS: XmlOptions = XmlOptions {
     use_single_quote: false,
 };
 
-const STD_CAPACITY: usize = 7;
-
 /// The `Encode` trait represents a generic icon encoder, providing basic
 /// inicialization methods as well as functionality for adding _entries_.
 /// 
@@ -74,28 +72,6 @@ const STD_CAPACITY: usize = 7;
 pub trait Encode: Sized {
     type Key: AsSize + Send + Sync;
 
-    /// Creates a new icon.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// let icon = Icon::new();
-    /// ```
-    fn new() -> Self {
-        Self::with_capacity(STD_CAPACITY)
-    }
-
-    /// Constructs a new, empty `IconEncoder` with the specified capacity.
-    /// The `capacity` argument designates the number of entries
-    /// that will be allocated.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// let icon = Icon::with_capacity(5);
-    /// ```
-    fn with_capacity(capacity: usize) -> Self;
-
     /// Returns the number of _entries_ contained in the icon.
     /// 
     /// # Example
@@ -115,11 +91,11 @@ pub trait Encode: Sized {
     ///
     /// # Return Value
     ///
-    /// * Returns `Err(EncodingError::AlreadyIncluded(_))` if the icon already contains
-    ///   an entry associated with `key`.
-    /// * Returns `Err(EncodingError::Resample(_))` if the resampling filter provided in
-    ///   the `filter` argument fails produces results of dimensions other than the
-    ///   ones specified by `key`.
+    /// * Returns `Err(EncodingError::AlreadyIncluded(_))` if the icon already 
+    ///   contains an entry associated with `key`.
+    /// * Returns `Err(EncodingError::Resample(_))` if the resampling filter 
+    ///   provided in the `filter` argument fails produces results of 
+    ///   dimensions other than the ones specified by `key`.
     /// * Otherwise returns `Ok(())`.
     /// 
     /// # Example
@@ -152,11 +128,11 @@ pub trait Encode: Sized {
     ///
     /// # Return Value
     ///
-    /// * Returns `Err(EncodingError::AlreadyIncluded(_))` if the icon already contains an
-    ///   entry associated with any of the items of `keys`.
-    /// * Returns `Err(EncodingError::Resample(_))` if the resampling filter provided in
-    ///   the `filter` argument fails or produces results of dimensions other than the
-    ///   ones specified by the items of `keys`.
+    /// * Returns `Err(EncodingError::AlreadyIncluded(_))` if the icon already 
+    ///   contains an entry associated with any of the items of `keys`.
+    /// * Returns `Err(EncodingError::Resample(_))` if the resampling filter 
+    ///   provided in the `filter` argument fails or produces results of 
+    ///   dimensions other than the ones specified by the items of `keys`.
     /// * Otherwise returns `Ok(())`.
     /// 
     /// # Example

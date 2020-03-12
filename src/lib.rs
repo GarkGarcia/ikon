@@ -110,20 +110,20 @@ impl Image {
         read.seek(SeekFrom::Start(0))?;
 
         match signature {
-            [0x89, 0x50, 0x4e, 0x47, 0xd, 0xa, 0x1a, 0xa] => {
+            [0x89, b'P', b'N', b'G', 0xd, 0xa, 0x1a, 0xa] => {
                 load_raster(read, ImageFormat::PNG).map(Image::from)
             },
-            [0xff, 0xd8, 0xff, _, _, _, _, _] => { 
+            [0xff, 0xd8, 0xff, ..] => { 
                 load_raster(read, ImageFormat::JPEG).map(Image::from)
             },
-            [0x47, 0x49, 0x46, 0x38, 0x37, 0x61, _, _]
-            | [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, _, _] => {
+            [b'G', b'I', b'F', b'8', b'7', 0x61, ..]
+            | [b'G', b'I', b'F', b'8', b'9', 0x61, ..] => {
                 load_raster(read, ImageFormat::GIF).map(Image::from)
             },
-            [0x42, 0x4d, _, _, _, _, _, _] => {
+            [b'B', b'M', ..] => {
                 load_raster(read, ImageFormat::BMP).map(Image::from)
             },
-            [0x52, 0x49, 0x46, 0x46, _, _, _, _] => {
+            [b'R', b'I', b'F', b'F', ..] => {
                 load_raster(read, ImageFormat::WEBP).map(Image::from)
             },
             _ => load_vector(read).map(Image::from)

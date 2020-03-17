@@ -1,6 +1,7 @@
-//! Traits, types and functions to assist in dencoding commonly used _icon formats_.
+//! Traits, types and functions to assist in dencoding commonly used 
+//! _icon formats_.
 
-use crate::{load_raster, load_vector, AsSize, Image};
+use crate::{load_raster, load_vector, Icon, Image};
 pub use error::DecodingError;
 use std::{io::{self, Read, Seek}};
 use image::{ImageFormat, DynamicImage};
@@ -8,21 +9,21 @@ use resvg::usvg::Tree;
 
 mod error;
 
-/// The `Decode` trait represents a generic icon decoder, providing methods
-/// for generating icons from byte streams, as well as functionality querying
-/// and inspecting _entries_.
+/// The `Decode` trait represents a generic _icon family_ decoder, providing 
+/// methods for generating icons from byte streams, as well as functionality 
+/// querying and inspecting _icon families_.
 /// 
 /// # Example
 /// 
 /// In this example we'll create a very simple `Decode` implementor whose
-/// keys are _positive integers_. First of all, we'll need a `Key` type:
+/// icons are _positive integers_. First of all, we'll need a `Icon` type:
 /// 
 /// ```rust
 /// #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-/// pub struct Key(pub u16);
+/// pub struct Icon(pub u16);
 /// 
-/// impl AsSize for Key {
-///     fn as_size(&self) -> u32 {
+/// impl Icon for ikon::Icon {
+///     fn size(&self) -> u32 {
 ///         if self.0 == 0 {
 ///             256
 ///         } else {
@@ -32,16 +33,17 @@ mod error;
 /// }
 /// ```
 /// 
-/// Note that `Key(0)` represents `Key(256)`. We can then implement our `Icon` type.
+/// Note that `Icon(0)` represents `Icon(256)`. We can then implement our 
+/// `IconFamily` type.
 /// 
 /// ```rust
 /// #[derive(Clone)]
-/// pub struct Icon {
-///     internal: HashMap<Key, DynamicImage>
+/// pub struct IconFamily {
+///     internal: HashMap<Icon, DynamicImage>
 /// }
 /// 
-/// impl Decode for Icon {
-///     type Key = Key;
+/// impl Decode for IconFamily {
+///     type Icon = Icon;
 /// 
 ///     fn read<R: Read>(r: R) -> io::Result<Self> {
 ///         // Some decoding in here . . .
@@ -51,19 +53,19 @@ mod error;
 ///         self.internal.len()
 ///     }
 /// 
-///     fn contains_key(key: &Self::Key) -> bool {
-///         self.internal.contains_key(key)
+///     fn contains_icon(icon: &Self::Icon) -> bool {
+///         self.internal.contains_entry(icon)
 ///     }
 /// 
-///     fn get(&self, key: &Self::Key) -> Option<&Image> {
-///         self.internal.get(key)
+///     fn get(&self, icon: &Self::Icon) -> Option<&Image> {
+///         self.internal.get(icon)
 ///     }
 /// 
-///     fn entries(&self) -> Iter<(Self::Key, Image)> {
+///     fn icons(&self) -> Iter<(Self::Icon, Image)> {
 ///         let output = Vec::with_capacity(self.len());
 /// 
-///         for entry in self.internal {
-///             output.push(entry);
+///         for icon in self.internal {
+///             output.push(icon);
 ///         }
 /// 
 ///         output.iter()
@@ -71,13 +73,13 @@ mod error;
 /// }
 /// ```
 pub trait Decode<'a>: Sized {
-    type Key: 'a + AsSize + Send + Sync;
-    type Entries: Iterator<Item = (&'a Self::Key, &'a Image)>;
+    type Icon: 'a + Icon + Send + Sync;
+    type Icons: Iterator<Item = (&'a Self::Icon, &'a Image)>;
 
     /// Parses and loads an icon into memmory.
     fn read<R: Read + Seek>(r: R) -> Result<Self, DecodingError>;
 
-    /// Returns the number of _entries_ contained in the icon.
+    /// Returns the number of _icons_ contained in the icon family.
     /// 
     /// # Example
     /// 
@@ -86,42 +88,42 @@ pub trait Decode<'a>: Sized {
     /// ```
     fn len(&self) -> usize;
 
-    /// Returns `true` if the icon includes an entry associated with `key`.
+    /// Returns `true` if the icon includes an icon associated with `icon`.
     /// Otherwise returns `false`.
     /// 
     /// # Example
     /// 
     /// ```rust
-    /// if icon.contains_key(&Key(32)) {
+    /// if icon.contains_icon(&Icon(32)) {
     ///     // Do this . . .
     /// } else {
     ///     // Do that . . .
     /// }
     /// ```
-    fn contains_key(&self, key: &Self::Key) -> bool;
+    fn contains_icon(&self, icon: &Self::Icon) -> bool;
     
-    /// Returns `Some(entry)` if the icon includes an entry associated with `key`.
+    /// Returns `Some(icon)` if the icon includes an icon associated with `icon`.
     /// Otherwise returns `None`.
     /// 
     /// # Example
     /// 
     /// ```rust
-    /// if let Some(entry) = icon.entry(&Key(32)) {
-    ///     // Process the entry . . .
+    /// if let Some(icon) = icon.icon(&Icon(32)) {
+    ///     // Process the icon . . .
     /// }
     /// ```
-    fn get(&self, key: &Self::Key) -> Option<&Image>;
+    fn get(&self, icon: &Self::Icon) -> Option<&Image>;
 
-    /// Returns an iterator over the entries of the icon.
+    /// Returns an iterator over the icons of the icon.
     /// 
     /// # Example
     /// 
     /// ```rust
-    /// for (key, image) in icon.entries() {
+    /// for (icon, image) in icon.icons() {
     ///     // Do something . . .
     /// }
     /// ```
-    fn entries(&'a self) -> Self::Entries;
+    fn icons(&'a self) -> Self::Icons;
 }
 
 #[inline]
@@ -141,3 +143,4 @@ pub fn bmp<R: Read + Seek>(read: &mut R) -> io::Result<DynamicImage> {
 pub fn svg<R: Read + Seek>(read: &mut R) -> io::Result<Tree> {
     load_vector(read)
 }
+

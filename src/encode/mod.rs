@@ -1,6 +1,7 @@
-//! Traits, types and functions to assist in encoding commonly used _icon formats_.
+//! Traits, types and functions to assist in encoding commonly used 
+//! _icon formats_.
 
-use crate::{AsSize, Image};
+use crate::{Icon, Image};
 use image::{DynamicImage, ImageOutputFormat, ImageError};
 use std::{io::{self, BufWriter}, path::Path, fs::File};
 use resvg::usvg::{Tree, XmlIndent, XmlOptions};
@@ -14,20 +15,20 @@ const XML_OPTS: XmlOptions = XmlOptions {
     use_single_quote: false,
 };
 
-/// The `Encode` trait represents a generic icon encoder, providing basic
-/// inicialization methods as well as functionality for adding _entries_.
+/// The `Encode` trait represents a generic _icon family_ encoder, providing 
+/// basic inicialization methods as well as functionality for adding _icons_.
 /// 
 /// # Example
 /// 
 /// In this example we'll create a very simple `Encode` implementor whose
-/// keys are _positive integers_. First of all, we'll need a `Key` type:
+/// icons are _positive integers_. First of all, we'll need a `Icon` type:
 /// 
 /// ```rust
 /// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-/// pub struct Key(pub u16);
+/// pub struct Icon(pub u16);
 /// 
-/// impl AsSize for Key {
-///     fn as_size(&self) -> u32 {
+/// impl Icon for ikon::Icon {
+///     fn size(&self) -> u32 {
 ///         if self.0 == 0 {
 ///             (256, 256)
 ///         } else {
@@ -37,42 +38,42 @@ const XML_OPTS: XmlOptions = XmlOptions {
 /// }
 /// ```
 /// 
-/// Note that `Key(0)` represents `Key(256)`. We can then implement our `Icon` type:
+/// Note that `Icon(0)` represents `Icon(256)`. We can then implement our `IconFamily` type:
 /// 
 /// ```rust
 /// #[derive(Clone)]
-/// pub struct Icon {
+/// pub struct IconFamily {
 ///     internal: HashMap<u16, DynamicImage>
 /// }
 /// 
-/// impl Encode for Icon {
-///     type Key = Key;
+/// impl Encode for IconFamily {
+///     type Icon = Icon;
 /// 
 ///     fn with_capacity(capacity: usize) -> Self {
 ///         Self { internal: HashMap::with_capacity(capacity) }
 ///     }
 /// 
-///     fn add_entry<F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>>(
+///     fn add_icon<F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>>(
 ///         &mut self,
 ///         filter: F,
 ///         source: &Image,
-///         key: Self::Key,
-///     ) -> Result<(), EncodingError<Self::Key>> {
-///         let size = key.as_size();
+///         icon: Self::Icon,
+///     ) -> Result<(), EncodingError<Self::Icon>> {
+///         let size = icon.size();
 /// 
-///         if let Entry::Vacant(entry) = self.internal.entry(size) {
-///             entry.insert(source.rasterize(filter, size));
+///         if let Entry::Vacant(icon) = self.internal.icon(size) {
+///             icon.insert(source.rasterize(filter, size));
 ///             Ok(())
 ///         } else {
-///             Err(EncodingError::AlreadyIncluded(key))
+///             Err(EncodingError::AlreadyIncluded(icon))
 ///         }
 ///     }
 /// }
 /// ```
 pub trait Encode: Sized {
-    type Key: AsSize + Send + Sync;
+    type Icon: Icon + Send + Sync;
 
-    /// Returns the number of _entries_ contained in the icon.
+    /// Returns the number of _icons_ contained in the icon.
     /// 
     /// # Example
     /// 
@@ -81,21 +82,21 @@ pub trait Encode: Sized {
     /// ```
     fn len(&self) -> usize;
 
-    /// Adds an individual entry to the icon.
+    /// Adds an individual icon to the icon.
     ///
     /// # Arguments
     ///
     /// * `filter` The resampling filter that will be used to re-scale `source`.
-    /// * `source` A reference to the source image this entry will be based on.
-    /// * `key` Information on the target entry.
+    /// * `source` A reference to the source image this icon will be based on.
+    /// * `icon` Information on the target icon.
     ///
     /// # Return Value
     ///
     /// * Returns `Err(EncodingError::AlreadyIncluded(_))` if the icon already 
-    ///   contains an entry associated with `key`.
+    ///   contains an icon associated with `icon`.
     /// * Returns `Err(EncodingError::Resample(_))` if the resampling filter 
     ///   provided in the `filter` argument fails produces results of 
-    ///   dimensions other than the ones specified by `key`.
+    ///   dimensions other than the ones specified by `icon`.
     /// * Otherwise returns `Ok(())`.
     /// 
     /// # Example
@@ -103,36 +104,36 @@ pub trait Encode: Sized {
     /// ```rust
     /// fn main() -> io::Result<()> {
     ///     let image = Image::open("image.svg")?;
-    ///     let icon = Icon::new();
+    ///     let family = IconFamily::new();
     /// 
-    ///     icon.add_entry(resample::linear, image, Key(32))?
-    ///         .add_entry(resample::nearest, image, Key(64))?;
+    ///     family.add_icon(resample::linear,  image, Icon(32))?
+    ///           .add_icon(resample::nearest, image, Icon(64))?;
     /// 
     ///     Ok(())
     /// }
     /// ```
-    fn add_entry<F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>>(
+    fn add_icon<F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,
         source: &Image,
-        key: Self::Key,
-    ) -> Result<&mut Self, EncodingError<Self::Key>>;
+        icon: Self::Icon,
+    ) -> Result<&mut Self, EncodingError<Self::Icon>>;
 
-    /// Adds a series of entries to the icon.
+    /// Adds a series of icons to the icon.
     ///
     /// # Arguments
     ///
     /// * `filter` The resampling filter that will be used to re-scale `source`.
-    /// * `source` A reference to the source image this entry will be based on.
-    /// * `keys` A container for the information on the target entries.
+    /// * `source` A reference to the source image this icon will be based on.
+    /// * `icons` A container for the information on the target icons.
     ///
     /// # Return Value
     ///
     /// * Returns `Err(EncodingError::AlreadyIncluded(_))` if the icon already 
-    ///   contains an entry associated with any of the items of `keys`.
+    ///   contains an icon associated with any of the items of `icons`.
     /// * Returns `Err(EncodingError::Resample(_))` if the resampling filter 
     ///   provided in the `filter` argument fails or produces results of 
-    ///   dimensions other than the ones specified by the items of `keys`.
+    ///   dimensions other than the ones specified by the items of `icons`.
     /// * Otherwise returns `Ok(())`.
     /// 
     /// # Example
@@ -140,28 +141,28 @@ pub trait Encode: Sized {
     /// ```rust
     /// fn main() -> io::Result<()> {
     ///     let image = Image::open("image.svg")?;
-    ///     let icon = Icon::new();
+    ///     let family = IconFamily::new();
     /// 
-    ///     icon.add_entries(
+    ///     family.add_icons(
     ///         resample::linear,
     ///         image,
-    ///         vec![Key(32), Key(64), Key(128)]
+    ///         vec![Icon(32), Icon(64), Icon(128)]
     ///     )?;
     /// 
     ///     Ok(())
     /// }
     /// ```
-    fn add_entries<
+    fn add_icons<
         F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>,
-        I: IntoIterator<Item = Self::Key>
+        I: IntoIterator<Item = Self::Icon>
     >(
         &mut self,
         mut filter: F,
         source: &Image,
-        keys: I,
-    ) -> Result<&mut Self, EncodingError<Self::Key>> {
-        for key in keys {
-            self.add_entry(|src, size| filter(src, size), source, key)?;
+        icons: I,
+    ) -> Result<&mut Self, EncodingError<Self::Icon>> {
+        for icon in icons {
+            self.add_icon(|src, size| filter(src, size), source, icon)?;
         }
 
         Ok(self)
@@ -180,12 +181,12 @@ pub trait Write: Encode {
     ///
     /// ```rust
     /// fn main() -> io::Result<()> {
-    ///     let icon = Icon::new();
+    ///     let family = IconFamily::new();
     ///
-    ///     /* Process the icon */
+    ///     // Process the icon family
     ///
     ///     let file = File::create("out.icns")?;
-    ///     icon.write(file)
+    ///     family.write(file)
     /// }
     /// ```
     fn write<W: io::Write>(&mut self, w: &mut W) -> io::Result<&mut Self>;
@@ -204,11 +205,11 @@ pub trait Save: Encode {
     /// use ikon::encode::{Encode, Save};
     ///  
     /// fn main() -> io::Result<()> {
-    ///     let icon = Icon::new();
+    ///     let family = IconFamily::new();
     ///
-    ///     /* Process the icon */
+    ///     // Process the icon family
     ///
-    ///     icon.save("./output/")
+    ///     family.save("./output/")
     /// }
     /// ```
     fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<&mut Self>;
@@ -251,3 +252,4 @@ fn image_err_to_io(err: ImageError) -> io::Error {
         _ => unreachable!()
     }
 }
+

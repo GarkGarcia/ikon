@@ -1,36 +1,43 @@
-//! A robust, flexible framework for creating encoders and decoders for various _icon formats_.
+//! # Ikon
+//! 
+//! A robust, flexible framework for creating encoders and decoders for various 
+//! _icon formats_.
 //! 
 //! # Overview
 //! 
-//! **Ikon** is intended to be used as a framework for developers interested in creating encoders and decoders
-//! for _various icon formats_ such as `.ico` files and _favicon_ schemes. It **does not** come with any encoders
-//! or decoders out of the box.
+//! **Ikon** is intended to be used as a framework for developers interested 
+//! in creating encoders and decoders for _various icon formats_ such as `.ico` 
+//! files and _favicon_ schemes. It **does not** come with any encoders or 
+//! decoders out of the box.
 //! 
-//! Instead, it simply automates much of the hard work of _encoding_, _decoding_ and _resampling_ different
-//! _image formats_, as well as provides powerfull abstractions, allowing developers to concentrate on the more
+//! Instead, it simply automates much of the hard work of _encoding_, 
+//! _decoding_ and _resampling_ different _image formats_, as well as provides 
+//! powerfull abstractions, allowing developers to concentrate on the more
 //! relevant problems.
 //! 
-//! _Icons_ are represented as maps between _keys_ and _images_. An _entry_ is a _key-value_ pair contained
-//! in an _icon_. The type of the _keys_ of an _icon_ is what determines how it can be indexed. 
+//! _Icon families_ are represented as maps between _icons_ and _images_.The 
+//! type of the _icons_ of an _icon_ is what determines how it can be 
+//! indexed. 
 //! 
-//! ## Keys
+//! ## Icons
 //! 
-//! Each _icon format_ is associated with a particular type of _key_. The type of the _keys_ of an _icon_ is
-//! what determines how it can be indexed. Each _key_ can only be associated with a single _image_.
-//! 
-//! Since the _keys_ of an _icon_ also encode information about the dimensions of it's associated _image_,
-//! `Encode::Key` and `Decode::Key` are required to implement `AsSize`.
-//! 
+//! Each _icon format_ is associated with a particular type of _icon_. The type 
+//! of the _icons_ of an _icon family_ is what determines how it can be 
+//! indexed. Each _icon_ can only be associated with a single _image_.
+//!
 //! ## Resampling
 //! 
-//! Raster graphics are scaled using resampling filters, which are represented by _functions that take a_
-//! _source image and a size and return a re-scaled image_.
+//! Raster graphics are scaled using resampling filters, which are represented 
+//! by _functions that take a source image and a size and return a re-scaled_ 
+//! _image_.
 //! 
-//! This allows the users of `ikon` and any of it's dependant crates to provide their custom resampling
-//! filters. Common resampling filters are provided in the
-//! [`resample`](https://docs.rs/ikon/0.1.0-beta.3/ikon/resample/index.html) module. The `resample`
-//! module also exposes the `resample::apply` function, which applies a resampling filter to an _image_
-//! and checks if the outputted result matches the dimensions specified by the filter's arguments.
+//! This allows the users of `ikon` and any of it's dependant crates to provide 
+//! their custom resampling filters. Common resampling filters are provided in 
+//! the
+//! [`resample`](https://docs.rs/ikon/0.1.0-beta.13/ikon/resample/index.html) 
+//! module. The `resample` module also exposes the `resample::apply` function, 
+//! which applies a resampling filter to an _image_ and checks if the outputted 
+//! result matches the dimensions specified by the filter's arguments.
 
 pub extern crate image;
 pub extern crate resvg;
@@ -51,9 +58,10 @@ pub mod decode;
 #[cfg(test)]
 mod test;
 
-/// A trait for types that represent the dimesions of an icon.
-pub trait AsSize {
-    fn as_size(&self) -> (u32, u32);
+/// A trait for types that represent icons.
+pub trait Icon {
+    // The dimensions of the icon in pixel units.
+    fn size(&self) -> (u32, u32);
 }
 
 #[derive(Clone)]
@@ -110,20 +118,20 @@ impl Image {
         read.seek(SeekFrom::Start(0))?;
 
         match signature {
-            [0x89, 0x50, 0x4e, 0x47, 0xd, 0xa, 0x1a, 0xa] => {
+            [0x89, b'P', b'N', b'G', 0xd, 0xa, 0x1a, 0xa] => {
                 load_raster(read, ImageFormat::PNG).map(Image::from)
             },
-            [0xff, 0xd8, 0xff, _, _, _, _, _] => { 
+            [0xff, 0xd8, 0xff, ..] => { 
                 load_raster(read, ImageFormat::JPEG).map(Image::from)
             },
-            [0x47, 0x49, 0x46, 0x38, 0x37, 0x61, _, _]
-            | [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, _, _] => {
+            [b'G', b'I', b'F', b'8', b'7', 0x61, ..]
+            | [b'G', b'I', b'F', b'8', b'9', 0x61, ..] => {
                 load_raster(read, ImageFormat::GIF).map(Image::from)
             },
-            [0x42, 0x4d, _, _, _, _, _, _] => {
+            [b'B', b'M', ..] => {
                 load_raster(read, ImageFormat::BMP).map(Image::from)
             },
-            [0x52, 0x49, 0x46, 0x46, _, _, _, _] => {
+            [b'R', b'I', b'F', b'F', ..] => {
                 load_raster(read, ImageFormat::WEBP).map(Image::from)
             },
             _ => load_vector(read).map(Image::from)
@@ -193,20 +201,20 @@ impl From<DynamicImage> for Image {
 unsafe impl Send for Image {}
 unsafe impl Sync for Image {}
 
-impl AsSize for (u32, u32) {
-    fn as_size(&self) -> (u32, u32) {
+impl Icon for (u32, u32) {
+    fn size(&self) -> (u32, u32) {
         *self
     }
 }
 
-impl AsSize for (u16, u16) {
-    fn as_size(&self) -> (u32, u32) {
+impl Icon for (u16, u16) {
+    fn size(&self) -> (u32, u32) {
         (self.0 as u32, self.1 as u32)
     }
 }
 
-impl AsSize for (u8, u8) {
-    fn as_size(&self) -> (u32, u32) {
+impl Icon for (u8, u8) {
+    fn size(&self) -> (u32, u32) {
         (self.0 as u32, self.1 as u32)
     }
 }

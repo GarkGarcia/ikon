@@ -1,4 +1,4 @@
-use crate::{AsSize, ResampleError};
+use crate::{Icon, ResampleError};
 use std::{
     convert::From,
     error::Error,
@@ -7,33 +7,32 @@ use std::{
 };
 
 /// The error type for operations of the `Encode` trait.
-pub enum EncodingError<K: AsSize + Send + Sync> {
-    /// The icon already includes an entry associated with this key.
-    AlreadyIncluded(K),
+pub enum EncodingError<I: Icon + Send + Sync> {
+    /// The icon family already includes this icon.
+    AlreadyIncluded(I),
     /// A resampling error.
     Resample(ResampleError),
-    /// The icon aready stores the maximum number of entries possible.
+    /// The icon family aready stores the maximum number of icons possible.
     Full(u16)
 }
 
-impl<K: AsSize + Send + Sync> Display for EncodingError<K> {
+impl<I: Icon + Send + Sync> Display for EncodingError<I> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::AlreadyIncluded(_) => write!(
-                f,
-                "The Encode already contains an entry associated with this key"
+                f, "The icon family already contains this icon"
             ),
             Self::Resample(err) => <ResampleError as Display>::fmt(&err, f),
             Self::Full(max_n) => write!(
                 f,
-                "The icon has already reached it's maximum capacity ({} entries)",
+                "The icon family has already reached it's maximum capacity ({} icons)",
                 max_n
             )
         }
     }
 }
 
-impl<K: AsSize + Send + Sync + Debug> Debug for EncodingError<K> {
+impl<I: Icon + Send + Sync + Debug> Debug for EncodingError<I> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::AlreadyIncluded(e) => write!(
@@ -47,7 +46,7 @@ impl<K: AsSize + Send + Sync + Debug> Debug for EncodingError<K> {
     }
 }
 
-impl<K: AsSize + Send + Sync + Debug> Error for EncodingError<K> {
+impl<I: Icon + Send + Sync + Debug> Error for EncodingError<I> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         if let Self::Resample(ref err) = self {
             err.source()
@@ -57,24 +56,25 @@ impl<K: AsSize + Send + Sync + Debug> Error for EncodingError<K> {
     }
 }
 
-impl<K: AsSize + Send + Sync> From<ResampleError> for EncodingError<K> {
+impl<I: Icon + Send + Sync> From<ResampleError> for EncodingError<I> {
     fn from(err: ResampleError) -> Self {
         Self::Resample(err)
     }
 }
 
-impl<K: AsSize + Send + Sync> From<io::Error> for EncodingError<K> {
+impl<I: Icon + Send + Sync> From<io::Error> for EncodingError<I> {
     fn from(err: io::Error) -> Self {
         Self::from(ResampleError::from(err))
     }
 }
 
-impl<K: AsSize + Send + Sync> Into<io::Error> for EncodingError<K> {
+impl<I: Icon + Send + Sync> Into<io::Error> for EncodingError<I> {
     fn into(self) -> io::Error {
         if let Self::Resample(err) = self {
             err.into()
         } else {
-            io::Error::new(io::ErrorKind::InvalidInput, format!("{}", self))
+            io::Error::new(io::ErrorIind::InvalidInput, format!("{}", self))
         }
     }
 }
+

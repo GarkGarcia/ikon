@@ -1,5 +1,9 @@
 use std::{io, fmt::{self, Display, Formatter}, error::Error};
 
+macro_rules! description {
+    ($err : expr) => ( <String as AsRef<str>>::as_ref(&format!("{}", $err)) );
+}
+
 #[derive(Debug)]
 /// The error type for operations of the `Decode` trait.
 pub enum DecodingError {
@@ -13,7 +17,9 @@ pub enum DecodingError {
 impl Clone for DecodingError {
     fn clone(&self) -> Self {
         match self {
-            Self::Io(err) => Self::Io(io::Error::new(err.kind(), err.description())),
+            Self::Io(err) => {
+                Self::Io(io::Error::new(err.kind(), description!(err)))
+            },
             Self::Unsupported(msg) => Self::Unsupported(msg.clone())
         }
     }

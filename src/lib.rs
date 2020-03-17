@@ -1,3 +1,5 @@
+//! # Ikon
+//! 
 //! A robust, flexible framework for creating encoders and decoders for various 
 //! _icon formats_.
 //! 
@@ -13,19 +15,19 @@
 //! powerfull abstractions, allowing developers to concentrate on the more
 //! relevant problems.
 //! 
-//! _IconFamilys_ are represented as maps between _icons_ and _images_. An 
-//! _icon_ is a _icon-value_ pair contained in an _icon_. The type of the 
-//! _icons_ of an _icon_ is what determines how it can be indexed. 
+//! _Icon familys_ are represented as maps between _icons_ and _images_.The 
+//! type of the _icons_ of an _icon_ is what determines how it can be 
+//! indexed. 
 //! 
 //! ## Icons
 //! 
 //! Each _icon format_ is associated with a particular type of _icon_. The type 
-//! of the _icons_ of an _icon_ is what determines how it can be indexed. Each 
-//! _icon_ can only be associated with a single _image_.
+//! of the _icons_ of an _icon family_ is what determines how it can be 
+//! indexed. Each _icon_ can only be associated with a single _image_.
 //! 
-//! Since the _icons_ of an *icon_familly* also encode information about the 
+//! Since the _icons_ of an _icon familly_ also encode information about the 
 //! dimensions of it's associated _image_, `Encode::Icon` and `Decode::Icon` 
-//! are required to implement `Icon`.
+//! are required to implement the `Icon` trait.
 //! 
 //! ## Resampling
 //! 
@@ -36,7 +38,7 @@
 //! This allows the users of `ikon` and any of it's dependant crates to provide 
 //! their custom resampling filters. Common resampling filters are provided in 
 //! the
-//! [`resample`](https://docs.rs/ikon/0.1.0-beta.3/ikon/resample/index.html) 
+//! [`resample`](https://docs.rs/ikon/0.1.0-beta.13/ikon/resample/index.html) 
 //! module. The `resample` module also exposes the `resample::apply` function, 
 //! which applies a resampling filter to an _image_ and checks if the outputted 
 //! result matches the dimensions specified by the filter's arguments.

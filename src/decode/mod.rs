@@ -9,9 +9,9 @@ use resvg::usvg::Tree;
 
 mod error;
 
-/// The `Decode` trait represents a generic icon decoder, providing methods
-/// for generating icons from byte streams, as well as functionality querying
-/// and inspecting _icons_.
+/// The `Decode` trait represents a generic _icon family_ decoder, providing 
+/// methods for generating icons from byte streams, as well as functionality 
+/// querying and inspecting _icon families_.
 /// 
 /// # Example
 /// 

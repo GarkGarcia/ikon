@@ -1,4 +1,5 @@
-//! Traits, types and functions to assist in encoding commonly used _icon formats_.
+//! Traits, types and functions to assist in encoding commonly used 
+//! _icon formats_.
 
 use crate::{Icon, Image};
 use image::{DynamicImage, ImageOutputFormat, ImageError};
@@ -14,7 +15,7 @@ const XML_OPTS: XmlOptions = XmlOptions {
     use_single_quote: false,
 };
 
-/// The `Encode` trait represents a generic icon-family encoder, providing 
+/// The `Encode` trait represents a generic _icon family_ encoder, providing 
 /// basic inicialization methods as well as functionality for adding _icons_.
 /// 
 /// # Example
@@ -26,7 +27,7 @@ const XML_OPTS: XmlOptions = XmlOptions {
 /// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// pub struct Icon(pub u16);
 /// 
-/// impl Icon for Icon {
+/// impl Icon for ikon::Icon {
 ///     fn size(&self) -> u32 {
 ///         if self.0 == 0 {
 ///             (256, 256)
@@ -103,10 +104,10 @@ pub trait Encode: Sized {
     /// ```rust
     /// fn main() -> io::Result<()> {
     ///     let image = Image::open("image.svg")?;
-    ///     let icon = IconFamily::new();
+    ///     let family = IconFamily::new();
     /// 
-    ///     icon.add_icon(resample::linear, image, Icon(32))?
-    ///         .add_icon(resample::nearest, image, Icon(64))?;
+    ///     family.add_icon(resample::linear,  image, Icon(32))?
+    ///           .add_icon(resample::nearest, image, Icon(64))?;
     /// 
     ///     Ok(())
     /// }
@@ -140,9 +141,9 @@ pub trait Encode: Sized {
     /// ```rust
     /// fn main() -> io::Result<()> {
     ///     let image = Image::open("image.svg")?;
-    ///     let icon = IconFamily::new();
+    ///     let family = IconFamily::new();
     /// 
-    ///     icon.add_icons(
+    ///     family.add_icons(
     ///         resample::linear,
     ///         image,
     ///         vec![Icon(32), Icon(64), Icon(128)]
@@ -180,12 +181,12 @@ pub trait Write: Encode {
     ///
     /// ```rust
     /// fn main() -> io::Result<()> {
-    ///     let icon = IconFamily::new();
+    ///     let family = IconFamily::new();
     ///
-    ///     /* Process the icon */
+    ///     /* Process the icon family */
     ///
     ///     let file = File::create("out.icns")?;
-    ///     icon.write(file)
+    ///     family.write(file)
     /// }
     /// ```
     fn write<W: io::Write>(&mut self, w: &mut W) -> io::Result<&mut Self>;
@@ -204,11 +205,11 @@ pub trait Save: Encode {
     /// use ikon::encode::{Encode, Save};
     ///  
     /// fn main() -> io::Result<()> {
-    ///     let icon = IconFamily::new();
+    ///     let family = IconFamily::new();
     ///
-    ///     /* Process the icon */
+    ///     /* Process the icon family */
     ///
-    ///     icon.save("./output/")
+    ///     family.save("./output/")
     /// }
     /// ```
     fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<&mut Self>;
@@ -251,3 +252,4 @@ fn image_err_to_io(err: ImageError) -> io::Error {
         _ => unreachable!()
     }
 }
+

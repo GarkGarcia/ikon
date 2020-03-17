@@ -183,7 +183,7 @@ pub trait Write: Encode {
     /// fn main() -> io::Result<()> {
     ///     let family = IconFamily::new();
     ///
-    ///     /* Process the icon family */
+    ///     // Process the icon family
     ///
     ///     let file = File::create("out.icns")?;
     ///     family.write(file)
@@ -207,7 +207,7 @@ pub trait Save: Encode {
     /// fn main() -> io::Result<()> {
     ///     let family = IconFamily::new();
     ///
-    ///     /* Process the icon family */
+    ///     // Process the icon family
     ///
     ///     family.save("./output/")
     /// }

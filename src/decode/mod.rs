@@ -79,7 +79,7 @@ pub trait Decode<'a>: Sized {
     /// Parses and loads an icon into memmory.
     fn read<R: Read + Seek>(r: R) -> Result<Self, DecodingError>;
 
-    /// Returns the number of _icons_ contained in the icon.
+    /// Returns the number of _icons_ contained in the icon family.
     /// 
     /// # Example
     /// 

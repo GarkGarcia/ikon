@@ -21,7 +21,7 @@ _decoding_ and _resampling_ different _image formats_, as well as provides
 powerfull abstractions, allowing developers to concentrate on the more
 relevant problems.
 
-_Icon familys_ are represented as maps between _icons_ and _images_.The 
+_Icon families_ are represented as maps between _icons_ and _images_.The 
 type of the _icons_ of an _icon_ is what determines how it can be 
 indexed. 
 
@@ -30,10 +30,6 @@ indexed.
 Each _icon format_ is associated with a particular type of _icon_. The type 
 of the _icons_ of an _icon family_ is what determines how it can be indexed. 
 Each _icon_ can only be associated with a single _image_.
-
-Since the _icons_ of an _icon familly_ also encode information about the 
-dimensions of it's associated _image_, `Encode::Icon` and `Decode::Icon` 
-are required to implement the `Icon` trait.
 
 ## Resampling
 

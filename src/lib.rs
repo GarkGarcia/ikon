@@ -15,7 +15,7 @@
 //! powerfull abstractions, allowing developers to concentrate on the more
 //! relevant problems.
 //! 
-//! _Icon familys_ are represented as maps between _icons_ and _images_.The 
+//! _Icon families_ are represented as maps between _icons_ and _images_.The 
 //! type of the _icons_ of an _icon_ is what determines how it can be 
 //! indexed. 
 //! 
@@ -24,11 +24,7 @@
 //! Each _icon format_ is associated with a particular type of _icon_. The type 
 //! of the _icons_ of an _icon family_ is what determines how it can be 
 //! indexed. Each _icon_ can only be associated with a single _image_.
-//! 
-//! Since the _icons_ of an _icon familly_ also encode information about the 
-//! dimensions of it's associated _image_, `Encode::Icon` and `Decode::Icon` 
-//! are required to implement the `Icon` trait.
-//! 
+//!
 //! ## Resampling
 //! 
 //! Raster graphics are scaled using resampling filters, which are represented 
@@ -62,8 +58,9 @@ pub mod decode;
 #[cfg(test)]
 mod test;
 
-/// A trait for types that represent the dimesions of an icon.
+/// A trait for types that represent icons.
 pub trait Icon {
+    // The dimensions of the icon in pixel units.
     fn size(&self) -> (u32, u32);
 }
 

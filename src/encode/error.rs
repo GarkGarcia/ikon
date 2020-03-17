@@ -73,7 +73,7 @@ impl<I: Icon + Send + Sync> Into<io::Error> for EncodingError<I> {
         if let Self::Resample(err) = self {
             err.into()
         } else {
-            io::Error::new(io::ErrorIind::InvalidInput, format!("{}", self))
+            io::Error::new(io::ErrorKind::InvalidInput, format!("{}", self))
         }
     }
 }

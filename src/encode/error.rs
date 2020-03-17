@@ -8,7 +8,7 @@ use std::{
 
 /// The error type for operations of the `Encode` trait.
 pub enum EncodingError<I: Icon + Send + Sync> {
-    /// The icon family already includes this icon.
+    /// The icon family already contains this icon.
     AlreadyIncluded(I),
     /// A resampling error.
     Resample(ResampleError),

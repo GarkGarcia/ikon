@@ -76,7 +76,7 @@ pub trait Decode<'a>: Sized {
     type Icon: 'a + Icon + Send + Sync;
     type Icons: Iterator<Item = (&'a Self::Icon, &'a Image)>;
 
-    /// Parses and loads an icon into memmory.
+    /// Parses and loads an icon family into memmory.
     fn read<R: Read + Seek>(r: R) -> Result<Self, DecodingError>;
 
     /// Returns the number of _icons_ contained in the icon family.
@@ -88,7 +88,7 @@ pub trait Decode<'a>: Sized {
     /// ```
     fn len(&self) -> usize;
 
-    /// Returns `true` if the icon includes an icon associated with `icon`.
+    /// Returns `true` if the icon family contains `icon`.
     /// Otherwise returns `false`.
     /// 
     /// # Example
@@ -102,7 +102,7 @@ pub trait Decode<'a>: Sized {
     /// ```
     fn contains_icon(&self, icon: &Self::Icon) -> bool;
     
-    /// Returns `Some(icon)` if the icon includes an icon associated with `icon`.
+    /// Returns `Some(icon)` if the icon family contains `icon`.
     /// Otherwise returns `None`.
     /// 
     /// # Example
@@ -114,7 +114,7 @@ pub trait Decode<'a>: Sized {
     /// ```
     fn get(&self, icon: &Self::Icon) -> Option<&Image>;
 
-    /// Returns an iterator over the icons of the icon.
+    /// Returns an iterator over the icons of the icon family.
     /// 
     /// # Example
     /// 

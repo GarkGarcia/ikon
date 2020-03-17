@@ -82,7 +82,7 @@ pub trait Encode: Sized {
     /// ```
     fn len(&self) -> usize;
 
-    /// Adds an individual icon to the icon.
+    /// Adds an individual icon to the icon family.
     ///
     /// # Arguments
     ///
@@ -92,8 +92,8 @@ pub trait Encode: Sized {
     ///
     /// # Return Value
     ///
-    /// * Returns `Err(EncodingError::AlreadyIncluded(_))` if the icon already 
-    ///   contains an icon associated with `icon`.
+    /// * Returns `Err(EncodingError::AlreadyIncluded(_))` if the icon family
+    ///   already contains `icon`.
     /// * Returns `Err(EncodingError::Resample(_))` if the resampling filter 
     ///   provided in the `filter` argument fails produces results of 
     ///   dimensions other than the ones specified by `icon`.
@@ -119,7 +119,7 @@ pub trait Encode: Sized {
         icon: Self::Icon,
     ) -> Result<&mut Self, EncodingError<Self::Icon>>;
 
-    /// Adds a series of icons to the icon.
+    /// Adds a series of icons to the icon family.
     ///
     /// # Arguments
     ///
@@ -129,8 +129,8 @@ pub trait Encode: Sized {
     ///
     /// # Return Value
     ///
-    /// * Returns `Err(EncodingError::AlreadyIncluded(_))` if the icon already 
-    ///   contains an icon associated with any of the items of `icons`.
+    /// * Returns `Err(EncodingError::AlreadyIncluded(_))` if the icon family
+    ///   already contains any of the items of `icons`.
     /// * Returns `Err(EncodingError::Resample(_))` if the resampling filter 
     ///   provided in the `filter` argument fails or produces results of 
     ///   dimensions other than the ones specified by the items of `icons`.
@@ -175,7 +175,7 @@ pub trait Encode: Sized {
 /// Usefull for _icon formats_ such as `.ico` and `.icns`
 /// files.
 pub trait Write: Encode {
-    /// Writes the contents of the icon to `w`.
+    /// Writes the contents of the icon family to `w`.
     ///
     /// # Example
     ///
@@ -197,7 +197,7 @@ pub trait Write: Encode {
 /// 
 /// Usefull for _icon formats_ such as _favicon_.
 pub trait Save: Encode {
-    /// Writes the contents of the icon to disk.
+    /// Writes the contents of the icon family to disk.
     ///
     /// # Example
     ///

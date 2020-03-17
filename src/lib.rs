@@ -60,7 +60,7 @@ mod test;
 
 /// A trait for types that represent icons.
 pub trait Icon {
-    // The dimensions of the icon in pixel units.
+    /// The dimensions of the icon in pixel units.
     fn size(&self) -> (u32, u32);
 }
 

@@ -34,7 +34,7 @@
 //! This allows the users of `ikon` and any of it's dependant crates to provide 
 //! their custom resampling filters. Common resampling filters are provided in 
 //! the
-//! [`resample`](https://docs.rs/ikon/0.1.0-beta.13/ikon/resample/index.html) 
+//! [`resample`](https://docs.rs/ikon/0.1.0-beta.15/ikon/resample/index.html) 
 //! module. The `resample` module also exposes the `resample::apply` function, 
 //! which applies a resampling filter to an _image_ and checks if the outputted 
 //! result matches the dimensions specified by the filter's arguments.

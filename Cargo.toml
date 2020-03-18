@@ -1,6 +1,6 @@
 [package]
 name = "ikon"
-version = "0.1.0-beta.16"
+version = "0.1.0-beta.17"
 authors = [
     "Gark Garcia <gark.garcia@protonmail.com>",
     "Nicolas Girard <girard.nicolas@gmail.com>"

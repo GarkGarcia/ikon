@@ -1,5 +1,5 @@
 //! Traits, types and functions to assist in encoding commonly used 
-//! _icon formats_.
+//! icon formats.
 
 use crate::{Icon, Image};
 use image::{DynamicImage, ImageOutputFormat, ImageError};
@@ -15,8 +15,8 @@ const XML_OPTS: XmlOptions = XmlOptions {
     use_single_quote: false,
 };
 
-/// The `Encode` trait represents a generic _icon family_ encoder, providing 
-/// basic inicialization methods as well as functionality for adding _icons_.
+/// The `Encode` trait represents a generic icon family encoder, providing 
+/// basic inicialization methods as well as functionality for adding icons.
 /// 
 /// # Example
 /// 
@@ -77,7 +77,7 @@ const XML_OPTS: XmlOptions = XmlOptions {
 pub trait Encode: Sized {
     type Icon: Icon + Send + Sync;
 
-    /// Returns the number of _icons_ contained in the icon.
+    /// Returns the number of icons contained in the icon family.
     fn len(&self) -> usize;
 
     /// Adds an individual icon to the icon family.
@@ -139,7 +139,7 @@ pub trait Encode: Sized {
 /// The `Write` trait provides functionality for writing the
 /// contents of an `Encode` into a `io::Write` implementor.
 /// 
-/// Usefull for _icon formats_ such as `.ico` and `.icns`
+/// Usefull for icon formats such as `.ico` and `.icns`
 /// files.
 pub trait Write: Encode {
     /// Writes the contents of the icon family to `w`.
@@ -149,15 +149,15 @@ pub trait Write: Encode {
 /// The `Save` trait provides functionality for saving the
 /// contents of an `Encode` to the local file system.
 /// 
-/// Usefull for _icon formats_ such as _favicon_.
+/// Usefull for icon formats such as _favicon_.
 pub trait Save: Encode {
     /// Writes the contents of the icon family to disk.
-    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<&mut Self>;
+    fn save<P: AsRef<Path>>(&mut self, path: P) -> io::Result<&mut Self>;
 }
 
 impl<T: Write> Save for T {
     #[inline]
-    fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<&mut Self> {
+    fn save<P: AsRef<Path>>(&mut self, path: P) -> io::Result<&mut Self> {
         let mut file = BufWriter::new(File::create(path)?);
         self.write(&mut file)
     }

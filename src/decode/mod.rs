@@ -1,5 +1,5 @@
 //! Traits, types and functions to assist in decoding commonly used 
-//! _icon formats_.
+//! icon formats.
 
 use crate::{load_raster, load_vector, Icon, Image};
 pub use error::DecodingError;
@@ -9,9 +9,9 @@ use resvg::usvg::Tree;
 
 mod error;
 
-/// The `Decode` trait represents a generic _icon family_ decoder, providing 
+/// The `Decode` trait represents a generic icon family decoder, providing 
 /// methods for generating icons from byte streams, as well as functionality 
-/// querying and inspecting _icon families_.
+/// querying and inspecting icon families.
 /// 
 /// # Example
 /// 
@@ -85,14 +85,14 @@ pub trait Decode<'a>: Sized {
     /// Parses and loads an icon family into memmory.
     fn read<R: Read + Seek>(r: R) -> Result<Self, DecodingError>;
 
-    /// Returns the number of _icons_ contained in the icon family.
+    /// Returns the number of icons contained in the icon family.
     fn len(&self) -> usize;
 
     /// Returns `true` if the icon family contains `icon`.
     /// Otherwise returns `false`.
     fn contains_icon(&self, icon: &Self::Icon) -> bool;
     
-    /// Returns `Some(icon)` if the icon family contains `icon`.
+    /// Returns `Some(image)` if the icon family contains `icon`.
     /// Otherwise returns `None`.
     fn get(&self, icon: &Self::Icon) -> Option<&Image>;
 

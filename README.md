@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/crates/l/ikon)](https://github.com/GarkGarcia/ikon/blob/master/LICENSE)
 
 A robust, flexible framework for creating encoders and decoders for various 
-_icon formats_.
+icon formats.
 
 # Overview
 
@@ -22,27 +22,27 @@ powerfull abstractions, allowing developers to concentrate on the more
 relevant problems.
 
 _Icon families_ are represented as maps between _icons_ and _images_.The 
-type of the _icons_ of an _icon_ is what determines how it can be 
+type of the _icons_ of an _icon family_ is what determines how it can be 
 indexed. 
 
 ## Icons
 
-Each _icon format_ is associated with a particular type of _icon_. The type 
-of the _icons_ of an _icon family_ is what determines how it can be indexed. 
-Each _icon_ can only be associated with a single _image_.
+Each icon format is associated with a particular type of icon. The type 
+of the icons of an icon family is what determines how it can be indexed. 
+Each icon can only be associated with a single image.
 
 ## Resampling
 
 Raster graphics are scaled using resampling filters, which are represented 
 by _functions that take a source image and a size and return a re-scaled_ 
-_image_.
+image.
 
 This allows the users of `ikon` and any of it's dependant crates to provide 
 their custom resampling filters. Common resampling filters are provided in 
 the
 [`resample`](https://docs.rs/ikon/0.1.0-beta.15/ikon/resample/index.html) 
 module. The `resample` module also exposes the `resample::apply` function, 
-which applies a resampling filter to an _image_ and checks if the outputted 
+which applies a resampling filter to an image and checks if the outputted 
 result matches the dimensions specified by the filter's arguments.
 
 # Supported Image Formats

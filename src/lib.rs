@@ -86,11 +86,6 @@ impl Image {
     /// * Returns `Err(io::Error::from(io::ErrorKind::InvalidInput))` if the image format is not
     ///   supported by `ikon`.
     /// * Returns `Err(io::Error::from(io::ErrorKind::InvalidData))` otherwise.
-    ///
-    /// # Example
-    /// ```rust
-    /// let img = Image::open("source.png")?;
-    /// ```
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
         Self::load(File::open(path)?)
     }
@@ -105,12 +100,6 @@ impl Image {
     /// * Returns `Err(io::Error::from(io::ErrorKind::InvalidInput))` if the image format is not
     ///   supported by `ikon`.
     /// * Returns `Err(io::Error::from(io::ErrorKind::InvalidData))` otherwise.
-    ///
-    /// # Example
-    /// ```rust
-    /// let file = File::open("source.png")?;
-    /// let img = Image::load(file)?;
-    /// ```
     pub fn load<R: Read + Seek>(mut read: R) -> Result<Self, io::Error> {
         // Read the file's signature
         let mut signature: [u8;8] = [0;8];
@@ -145,14 +134,6 @@ impl Image {
     /// rasterizes the image to fit the dimensions specified `size` using
     /// [_linear interpolation_](https://en.wikipedia.org/wiki/Linear_interpolation)
     /// and [_anti-aliasing_](https://en.wikipedia.org/wiki/Anti-aliasing).
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// if let Ok(raster) = image.rasterize(resample::linear, 32) {
-    ///     // Process raster...
-    /// }
-    /// ```
     pub fn rasterize<F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>>(
         &self,
         filter: F,
@@ -249,7 +230,9 @@ fn load_vector<R: Read + Seek>(mut read: R) -> io::Result<Tree> {
         Err(usvg::Error::InvalidFileSuffix) => {
             Err(io::Error::from(io::ErrorKind::InvalidInput))
         }
-        Err(usvg::Error::FileOpenFailed) => Err(io::Error::from(io::ErrorKind::Other)),
+        Err(usvg::Error::FileOpenFailed) => {
+            Err(io::Error::from(io::ErrorKind::Other))
+        },
         _ => Err(io::Error::from(io::ErrorKind::InvalidData)),
     }
 }

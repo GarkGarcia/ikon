@@ -27,12 +27,11 @@ const XML_OPTS: XmlOptions = XmlOptions {
 /// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// pub struct Icon(pub u16);
 /// 
-/// impl Icon for ikon::Icon {
-///     fn size(&self) -> u32 {
-///         if self.0 == 0 {
-///             (256, 256)
-///         } else {
-///             (*self.0, *self.0)
+/// impl ikon::Icon for Icon {
+///     fn size(&self) -> (u32, u32) {
+///         match self {
+///             Icon(0) => (256, 256),
+///             Icon(size) => (*size as u32, *size as u32)
 ///         }
 ///     }
 /// }
@@ -41,16 +40,21 @@ const XML_OPTS: XmlOptions = XmlOptions {
 /// Note that `Icon(0)` represents `Icon(256)`. We can then implement our `IconFamily` type:
 /// 
 /// ```rust
+/// use std::{io, marker, collections::hash_map::{HashMap, Entry}};
+/// use ikon::{encode::{Encode, EncodingError}, image::DynamicImage, Image};
+///
 /// #[derive(Clone)]
-/// pub struct IconFamily {
-///     internal: HashMap<u16, DynamicImage>
+/// pub struct IconFamily<Icon: ikon::Icon + Send + Sync> {
+///     internal: HashMap<(u32, u32), DynamicImage>,
+///     phantom: marker::PhantomData<Icon>
 /// }
 /// 
-/// impl Encode for IconFamily {
+/// impl<Icon: ikon::Icon + Send + Sync> Encode for IconFamily<Icon> {
 ///     type Icon = Icon;
-/// 
-///     fn with_capacity(capacity: usize) -> Self {
-///         Self { internal: HashMap::with_capacity(capacity) }
+///
+///     #[inline]
+///     fn len(&self) -> usize {
+///         self.internal.len()
 ///     }
 /// 
 ///     fn add_icon<F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>>(
@@ -58,12 +62,12 @@ const XML_OPTS: XmlOptions = XmlOptions {
 ///         filter: F,
 ///         source: &Image,
 ///         icon: Self::Icon,
-///     ) -> Result<(), EncodingError<Self::Icon>> {
+///     ) -> Result<&mut Self, EncodingError<Self::Icon>> {
 ///         let size = icon.size();
 /// 
-///         if let Entry::Vacant(icon) = self.internal.icon(size) {
-///             icon.insert(source.rasterize(filter, size));
-///             Ok(())
+///         if let Entry::Vacant(entry) = self.internal.entry(size) {
+///             entry.insert(source.rasterize(filter, size)?);
+///             Ok(self)
 ///         } else {
 ///             Err(EncodingError::AlreadyIncluded(icon))
 ///         }
@@ -74,12 +78,6 @@ pub trait Encode: Sized {
     type Icon: Icon + Send + Sync;
 
     /// Returns the number of _icons_ contained in the icon.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// let len = icon.len();
-    /// ```
     fn len(&self) -> usize;
 
     /// Adds an individual icon to the icon family.
@@ -98,20 +96,6 @@ pub trait Encode: Sized {
     ///   provided in the `filter` argument fails produces results of 
     ///   dimensions other than the ones specified by `icon`.
     /// * Otherwise returns `Ok(())`.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// fn main() -> io::Result<()> {
-    ///     let image = Image::open("image.svg")?;
-    ///     let family = IconFamily::new();
-    /// 
-    ///     family.add_icon(resample::linear,  image, Icon(32))?
-    ///           .add_icon(resample::nearest, image, Icon(64))?;
-    /// 
-    ///     Ok(())
-    /// }
-    /// ```
     fn add_icon<F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>>(
         &mut self,
         filter: F,
@@ -135,23 +119,6 @@ pub trait Encode: Sized {
     ///   provided in the `filter` argument fails or produces results of 
     ///   dimensions other than the ones specified by the items of `icons`.
     /// * Otherwise returns `Ok(())`.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// fn main() -> io::Result<()> {
-    ///     let image = Image::open("image.svg")?;
-    ///     let family = IconFamily::new();
-    /// 
-    ///     family.add_icons(
-    ///         resample::linear,
-    ///         image,
-    ///         vec![Icon(32), Icon(64), Icon(128)]
-    ///     )?;
-    /// 
-    ///     Ok(())
-    /// }
-    /// ```
     fn add_icons<
         F: FnMut(&DynamicImage, (u32, u32)) -> io::Result<DynamicImage>,
         I: IntoIterator<Item = Self::Icon>
@@ -176,19 +143,6 @@ pub trait Encode: Sized {
 /// files.
 pub trait Write: Encode {
     /// Writes the contents of the icon family to `w`.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// fn main() -> io::Result<()> {
-    ///     let family = IconFamily::new();
-    ///
-    ///     // Process the icon family
-    ///
-    ///     let file = File::create("out.icns")?;
-    ///     family.write(file)
-    /// }
-    /// ```
     fn write<W: io::Write>(&mut self, w: &mut W) -> io::Result<&mut Self>;
 }
 
@@ -198,20 +152,6 @@ pub trait Write: Encode {
 /// Usefull for _icon formats_ such as _favicon_.
 pub trait Save: Encode {
     /// Writes the contents of the icon family to disk.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use ikon::encode::{Encode, Save};
-    ///  
-    /// fn main() -> io::Result<()> {
-    ///     let family = IconFamily::new();
-    ///
-    ///     // Process the icon family
-    ///
-    ///     family.save("./output/")
-    /// }
-    /// ```
     fn save<P: AsRef<Path>>(&mut self, path: &P) -> io::Result<&mut Self>;
 }
 
@@ -245,6 +185,7 @@ pub fn svg<W: io::Write>(image: &Tree, w: &mut W) -> io::Result<()> {
     w.write_all(image.to_string(XML_OPTS).as_ref())
 }
 
+#[inline]
 /// Convert an `ImageError` to an `io::Error`
 fn image_err_to_io(err: ImageError) -> io::Error {
     match err {

@@ -36,7 +36,11 @@ mod error;
 /// `IconFamily` type.
 /// 
 /// ```rust
-/// use std::{io::{self, Read}, collections::HashMap, hash::Hash, slice::Iter};
+/// use std::{
+///     io::{self, Read}, 
+///     collections::hash_map::{HashMap, Iter}, 
+///     hash::Hash
+/// };
 /// use ikon::{decode::{Decode, DecodingError}, Image};
 ///
 /// #[derive(Clone)]
@@ -48,7 +52,7 @@ mod error;
 ///     where Icon: 'a + ikon::Icon + Send + Sync + Eq + Hash
 /// {
 ///     type Icon = Icon;
-///     type Icons = Iter<'a, (Self::Icon, Image)>;
+///     type Iter = Iter<'a, Icon, Image>;
 /// 
 ///     fn read<R: Read>(r: R) -> Result<Self, DecodingError> {
 ///         unimplemented!("Some decoding in here . . .");
@@ -65,14 +69,18 @@ mod error;
 ///     fn get(&self, icon: &Self::Icon) -> Option<&Image> {
 ///         self.internal.get(icon)
 ///     }
+///
+///     fn iter(&'a self) -> Self::Iter {
+///         self.internal.iter()
+///     }
 /// }
 /// ```
 pub trait Decode<'a>: Sized {
     /// The type of icon of the icon family.
     type Icon: 'a + Icon + Send + Sync;
 
-    /// The return type of `Decode::icons`.
-    type Icons: Iterator<Item = &'a (Self::Icon, Image)>;
+    /// The return type of `Decode::iter`.
+    type Iter: Iterator<Item = (&'a Self::Icon, &'a Image)>;
 
     /// Parses and loads an icon family into memmory.
     fn read<R: Read + Seek>(r: R) -> Result<Self, DecodingError>;
@@ -86,6 +94,10 @@ pub trait Decode<'a>: Sized {
     
     /// Returns `Some(icon)` if the icon family contains `icon`.
     fn get(&self, icon: &Self::Icon) -> Option<&Image>;
+
+    /// Returns an iterator that iterates through all icons contained in 
+    /// `self`.
+    fn iter(&'a self) -> Self::Iter;
 }
 
 #[inline]

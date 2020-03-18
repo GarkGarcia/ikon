@@ -49,11 +49,13 @@ impl From<io::Error> for DecodingError {
     }
 }
 
-impl Into<io::Error> for DecodingError {
-    fn into(self) -> io::Error {
-        match self {
-            Self::Io(err) => err,
-            Self::Unsupported(msg) => io::Error::new(io::ErrorKind::InvalidInput, msg)
+impl From<DecodingError> for io::Error {
+    fn from(err: DecodingError) -> io::Error {
+        match err {
+            DecodingError::Io(err) => err,
+            DecodingError::Unsupported(msg) => {
+                io::Error::new(io::ErrorKind::InvalidInput, msg)
+            }
         }
     }
 }

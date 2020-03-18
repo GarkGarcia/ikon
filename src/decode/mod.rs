@@ -1,4 +1,4 @@
-//! Traits, types and functions to assist in dencoding commonly used 
+//! Traits, types and functions to assist in decoding commonly used 
 //! _icon formats_.
 
 use crate::{load_raster, load_vector, Icon, Image};
@@ -22,12 +22,11 @@ mod error;
 /// #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 /// pub struct Icon(pub u16);
 /// 
-/// impl Icon for ikon::Icon {
-///     fn size(&self) -> u32 {
-///         if self.0 == 0 {
-///             256
-///         } else {
-///             *self.0
+/// impl ikon::Icon for Icon {
+///     fn size(&self) -> (u32, u32) {
+///         match self {
+///             Icon(0) => (256, 256),
+///             Icon(size) => (*size as u32, *size as u32)
 ///         }
 ///     }
 /// }
@@ -37,93 +36,69 @@ mod error;
 /// `IconFamily` type.
 /// 
 /// ```rust
+/// use std::{
+///     io::{self, Read}, 
+///     collections::hash_map::{HashMap, Iter}, 
+///     hash::Hash
+/// };
+/// use ikon::{decode::{Decode, DecodingError}, Image};
+///
 /// #[derive(Clone)]
-/// pub struct IconFamily {
-///     internal: HashMap<Icon, DynamicImage>
+/// pub struct IconFamily<Icon: ikon::Icon + Send + Sync + Eq + Hash> {
+///     internal: HashMap<Icon, Image>
 /// }
 /// 
-/// impl Decode for IconFamily {
+/// impl<'a, Icon> Decode<'a> for IconFamily<Icon> 
+///     where Icon: 'a + ikon::Icon + Send + Sync + Eq + Hash
+/// {
 ///     type Icon = Icon;
+///     type Iter = Iter<'a, Icon, Image>;
 /// 
-///     fn read<R: Read>(r: R) -> io::Result<Self> {
-///         // Some decoding in here . . .
+///     fn read<R: Read>(r: R) -> Result<Self, DecodingError> {
+///         unimplemented!("Some decoding in here . . .");
 ///     }
 /// 
 ///     fn len(&self) -> usize {
 ///         self.internal.len()
 ///     }
 /// 
-///     fn contains_icon(icon: &Self::Icon) -> bool {
-///         self.internal.contains_entry(icon)
+///     fn contains_icon(&self, icon: &Self::Icon) -> bool {
+///         self.internal.contains_key(icon)
 ///     }
 /// 
 ///     fn get(&self, icon: &Self::Icon) -> Option<&Image> {
 ///         self.internal.get(icon)
 ///     }
-/// 
-///     fn icons(&self) -> Iter<(Self::Icon, Image)> {
-///         let output = Vec::with_capacity(self.len());
-/// 
-///         for icon in self.internal {
-///             output.push(icon);
-///         }
-/// 
-///         output.iter()
+///
+///     fn iter(&'a self) -> Self::Iter {
+///         self.internal.iter()
 ///     }
 /// }
 /// ```
 pub trait Decode<'a>: Sized {
+    /// The type of icon of the icon family.
     type Icon: 'a + Icon + Send + Sync;
-    type Icons: Iterator<Item = (&'a Self::Icon, &'a Image)>;
+
+    /// The return type of `Decode::iter`.
+    type Iter: Iterator<Item = (&'a Self::Icon, &'a Image)>;
 
     /// Parses and loads an icon family into memmory.
     fn read<R: Read + Seek>(r: R) -> Result<Self, DecodingError>;
 
     /// Returns the number of _icons_ contained in the icon family.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// let len = icon.len();
-    /// ```
     fn len(&self) -> usize;
 
     /// Returns `true` if the icon family contains `icon`.
     /// Otherwise returns `false`.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// if icon.contains_icon(&Icon(32)) {
-    ///     // Do this . . .
-    /// } else {
-    ///     // Do that . . .
-    /// }
-    /// ```
     fn contains_icon(&self, icon: &Self::Icon) -> bool;
     
     /// Returns `Some(icon)` if the icon family contains `icon`.
     /// Otherwise returns `None`.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// if let Some(icon) = icon.icon(&Icon(32)) {
-    ///     // Process the icon . . .
-    /// }
-    /// ```
     fn get(&self, icon: &Self::Icon) -> Option<&Image>;
 
-    /// Returns an iterator over the icons of the icon family.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// for (icon, image) in icon.icons() {
-    ///     // Do something . . .
-    /// }
-    /// ```
-    fn icons(&'a self) -> Self::Icons;
+    /// Returns an iterator that iterates through all icons contained in 
+    /// `self`.
+    fn iter(&'a self) -> Self::Iter;
 }
 
 #[inline]

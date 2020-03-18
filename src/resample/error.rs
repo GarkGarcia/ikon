@@ -47,11 +47,13 @@ impl Error for ResampleError {
     }
 }
 
-impl Into<io::Error> for ResampleError {
-    fn into(self) -> io::Error {
-        match self {
-            Self::Io(err) => err,
-            Self::MismatchedDimensions(_, _) => io::Error::from(io::ErrorKind::InvalidData),
+impl From<ResampleError> for io::Error {
+    fn from(err: ResampleError) -> io::Error {
+        match err {
+            ResampleError::Io(err) => err,
+            ResampleError::MismatchedDimensions(_, _) => {
+                io::Error::from(io::ErrorKind::InvalidData)
+            }
         }
     }
 }

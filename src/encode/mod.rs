@@ -77,7 +77,7 @@ const XML_OPTS: XmlOptions = XmlOptions {
 pub trait Encode: Sized {
     type Icon: Icon + Send + Sync;
 
-    /// Returns the number of icons contained in the icon.
+    /// Returns the number of icons contained in the icon family.
     fn len(&self) -> usize;
 
     /// Adds an individual icon to the icon family.

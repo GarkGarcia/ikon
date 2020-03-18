@@ -29,7 +29,7 @@
 //! 
 //! Raster graphics are scaled using resampling filters, which are represented 
 //! by _functions that take a source image and a size and return a re-scaled_ 
-//! image.
+//! _image_.
 //! 
 //! This allows the users of `ikon` and any of it's dependant crates to provide 
 //! their custom resampling filters. Common resampling filters are provided in 

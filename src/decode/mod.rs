@@ -93,6 +93,7 @@ pub trait Decode<'a>: Sized {
     fn contains_icon(&self, icon: &Self::Icon) -> bool;
     
     /// Returns `Some(icon)` if the icon family contains `icon`.
+    /// Otherwise returns `None`.
     fn get(&self, icon: &Self::Icon) -> Option<&Image>;
 
     /// Returns an iterator that iterates through all icons contained in 

@@ -68,12 +68,12 @@ impl<I: Icon + Send + Sync> From<io::Error> for EncodingError<I> {
     }
 }
 
-impl<I: Icon + Send + Sync> Into<io::Error> for EncodingError<I> {
-    fn into(self) -> io::Error {
-        if let Self::Resample(err) = self {
+impl<I: Icon + Send + Sync> From<EncodingError<I>> for io::Error {
+    fn from(err: EncodingError<I>) -> io::Error {
+        if let EncodingError::Resample(err) = err {
             err.into()
         } else {
-            io::Error::new(io::ErrorKind::InvalidInput, format!("{}", self))
+            io::Error::new(io::ErrorKind::InvalidInput, format!("{}", err))
         }
     }
 }
